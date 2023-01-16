@@ -14,7 +14,7 @@
 
 #include "lang/algorithm.h"
 #include "lang/verify.h"
-
+// 请求的头部
 struct req_header {
   req_header(int x = 0, int p = 0, int c = 0, int s = 0, int xi = 0)
       : xid(x), proc(p), clt_nonce(c), srv_nonce(s), xid_rep(xi) {}
@@ -24,7 +24,7 @@ struct req_header {
   unsigned int srv_nonce;
   int xid_rep;
 };
-
+// 响应的rpc头部
 struct reply_header {
   reply_header(int x = 0, int r = 0) : xid(x), ret(r) {}
   int xid;

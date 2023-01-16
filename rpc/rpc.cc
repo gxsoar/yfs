@@ -182,13 +182,13 @@ void rpcc::cancel(void) {
   }
   printf("rpcc::cancel: done\n");
 }
-
+// 参数proc用来表示rpc的状态
 int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
   caller ca(0, &rep);
   int xid_rep;
   {
     ScopedLock ml(&m_);
-
+    // 如果proc未绑定或者或者已经绑定完成了测出错，需要proc == bind && !bind_done_
     if ((proc != rpc_const::bind && !bind_done_) ||
         (proc == rpc_const::bind && bind_done_)) {
       jsl_log(JSL_DBG_1,
@@ -202,10 +202,10 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
 
     ca.xid = xid_++;
     calls_[ca.xid] = &ca;
-
+    // req_header头部的信息有：caller的xid, proc的状态, clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()?
     req_header h(ca.xid, proc, clt_nonce_, srv_nonce_, xid_rep_window_.front());
     req.pack_req_header(h);
-    xid_rep = xid_rep_window_.front();
+    xid_rep = xid_rep_window_.front();  // xid_rep返回的rep的xid
   }
 
   TO curr_to;
@@ -227,12 +227,15 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
           {
             ScopedLock ml(&m_);
             if (dup_req_.isvalid() && xid_rep_done_ > dup_req_.xid) {
+              // 如果dup_req_是合法的, 并且已经发送的xid_repd的序号 > dup_req_xid说明dup_req是忘记发送了
               forgot = dup_req_;
               dup_req_.clear();
             }
           }
-          if (forgot.isvalid())
+          if (forgot.isvalid()) {
+            // 如果是valid则重新发送
             ch->send((char *)forgot.buf.c_str(), forgot.buf.size());
+          }
           ch->send(req.cstr(), req.size());
         } else
           jsl_log(JSL_DBG_1, "not reachable\n");
@@ -254,6 +257,7 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
 
     {
       ScopedLock cal(&ca.m);
+      // 使用条件变量如果caller没有发送就一直陷入这个循环直到超时
       while (!ca.done) {
         jsl_log(JSL_DBG_2, "rpcc:call1: wait\n");
         if (pthread_cond_timedwait(&ca.c, &ca.m, &nextdeadline) == ETIMEDOUT) {
@@ -680,7 +684,7 @@ int rpcs::rpcbind(int a, int &r) {
 
 void marshall::rawbyte(unsigned char x) {
   if (_ind >= _capa) {
-    _capa *= 2;
+    _capa *= 2; //  如果读写头的位置大于容量的位置，执行2倍扩容
     VERIFY(_buf != NULL);
     _buf = (char *)realloc(_buf, _capa);
     VERIFY(_buf);

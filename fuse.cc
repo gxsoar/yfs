@@ -5,8 +5,7 @@
  * have to use low-level interface in order to get i-numbers.  the
  * high-level interface only gives us complete paths.
  */
-
-#include <fuse_lowlevel.h>
+#include <fuse/fuse_lowlevel.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>

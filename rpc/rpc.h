@@ -271,6 +271,9 @@ class rpcs : public chanmgr {
       buf = NULL;
       sz = 0;
     }
+    bool operator==(const reply_t &rhs) {
+      return xid == rhs.xid;
+    }
     unsigned int xid;
     bool cb_present;  // whether the reply buffer is valid
     char *buf;        // the reply buffer

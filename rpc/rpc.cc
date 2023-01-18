@@ -646,27 +646,35 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
                                                  unsigned int xid,
                                                  unsigned int xid_rep, char **b,
                                                  int *sz) {
-  ScopedLock rwl(&reply_window_m_);
+  // You fill this in for Lab 1.                                                
+  ScopedLock rwl(&reply_window_m_); 
   if (reply_window_.count(clt_nonce) == 0) {
     if (reply_window_[clt_nonce].size() == 0)
       return NEW;
   }
   auto &clt_window = reply_window_[clt_nonce];
-  auto ite = std::find(clt_window.begin(), clt_window.end(), xid);
-  if (ite == clt_window.end()) {
-
+  if (clt_window.front().xid > xid) {
+    return FORGOTTEN;
   }
-  // 更新窗口
-  for (auto ite2 = clt_window.begin(); ite2 != clt_window.end(); ) {
-    if (ite2->xid <= xid_rep) {
-      ite2->cb_present = false;
-      free(ite2->buf);
-      ite2 = clt_window.erase(ite2);
-    } else {
-      ++ite2;
+  for (auto ite = clt_window.begin(); ite != clt_window.end(); ) {
+    if (ite->xid < xid_rep) {
+      ite->cb_present = false;
+      free(ite->buf);
+      ite = clt_window.erase(ite);
+      continue;
+    } 
+    if (ite->xid == xid) {
+      if (ite->cb_present) {
+        *b = ite->buf;
+        *sz = ite->sz;
+        return DONE;
+      }
+      return INPROGRESS;
     }
+    ++ite;
   }
-  // You fill this in for Lab 1.
+  reply_t tmp(xid);
+  clt_window.push_back(tmp);
   return NEW;
 }
 
@@ -678,12 +686,20 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
 void rpcs::add_reply(unsigned int clt_nonce, unsigned int xid, char *b,
                      int sz) {
   ScopedLock rwl(&reply_window_m_);
-  reply_t rep(xid);
-  rep.buf = b;
-  rep.sz = sz;
-  rep.cb_present = true;
-  reply_window_[clt_nonce].push_back(rep);
   // You fill this in for Lab 1.
+  auto ite = std::find(reply_window_[clt_nonce].begin(), reply_window_[clt_nonce].end(), xid);
+  if (ite != reply_window_[clt_nonce].end()) {
+    ite->buf = b;
+    ite->sz = sz;
+    ite->cb_present = true;
+  } else {
+    reply_t tmp(xid);
+    tmp.buf = b;
+    tmp.sz = sz;
+    tmp.cb_present = true;
+    reply_window_[clt_nonce].push_back(tmp);
+  }
+  
 }
 
 void rpcs::free_reply_window(void) {

@@ -1,5 +1,6 @@
 ## ignore this file ##
 *.a
 *.o
+*.d
 rpc/*.a
 rpc/*.d

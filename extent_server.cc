@@ -14,7 +14,18 @@ extent_server::extent_server() {}
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
   // You fill this in for Lab 2.
-  return extent_protocol::IOERR;
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (extent_content_.count(id) || extent_attr_.count(id)) {
+    return extent_protocol::IOERR;
+  }
+  extent_content_[id] = buf;
+  extent_protocol::attr att;
+  att.size = buf.size();
+  att.ctime = time(nullptr);
+  att.mtime = time(nullptr);
+  att.atime = time(nullptr);
+  extent_attr_[id] = att;
+  return extent_protocol::OK;
 }
 
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf)

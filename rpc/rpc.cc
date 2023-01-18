@@ -67,6 +67,7 @@
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <time.h>
+#include <algorithm>
 
 #include "gettime.h"
 #include "jsl_log.h"
@@ -481,7 +482,8 @@ void rpcs::dispatch(djob_t *j) {
   connection *c = j->conn;
   unmarshall req(j->buf, j->sz);
   delete j;
-
+  // req_header头部的信息有：caller的xid, proc的状态, clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()?
+  // req_header h(ca.xid, proc, clt_nonce_, srv_nonce_, xid_rep_window_.front());
   req_header h;
   req.unpack_req_header(&h);
   int proc = h.proc;
@@ -645,7 +647,25 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
                                                  unsigned int xid_rep, char **b,
                                                  int *sz) {
   ScopedLock rwl(&reply_window_m_);
+  if (reply_window_.count(clt_nonce) == 0) {
+    if (reply_window_[clt_nonce].size() == 0)
+      return NEW;
+  }
+  auto &clt_window = reply_window_[clt_nonce];
+  auto ite = std::find(clt_window.begin(), clt_window.end(), xid);
+  if (ite == clt_window.end()) {
 
+  }
+  // 更新窗口
+  for (auto ite2 = clt_window.begin(); ite2 != clt_window.end(); ) {
+    if (ite2->xid <= xid_rep) {
+      ite2->cb_present = false;
+      free(ite2->buf);
+      ite2 = clt_window.erase(ite2);
+    } else {
+      ++ite2;
+    }
+  }
   // You fill this in for Lab 1.
   return NEW;
 }
@@ -658,6 +678,11 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
 void rpcs::add_reply(unsigned int clt_nonce, unsigned int xid, char *b,
                      int sz) {
   ScopedLock rwl(&reply_window_m_);
+  reply_t rep(xid);
+  rep.buf = b;
+  rep.sz = sz;
+  rep.cb_present = true;
+  reply_window_[clt_nonce].push_back(rep);
   // You fill this in for Lab 1.
 }
 

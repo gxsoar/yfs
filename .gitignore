@@ -2,5 +2,7 @@
 *.a
 *.o
 *.d
+*.out
 rpc/*.a
 rpc/*.d
+rpc/*.out

@@ -4,3 +4,4 @@
 *.d
 rpc/*.a
 rpc/*.d
+.vscode

@@ -73,3 +73,21 @@ int yfs_client::getdir(inum inum, dirinfo &din) {
 release:
   return r;
 }
+
+yfs_client::inum yfs_client::createFileInum() {
+  std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
+  auto inum = generator();
+  inum |= 0x80000000;
+  return inum;
+}
+
+yfs_client::inum yfs_client::createDirInum() {
+  std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
+  auto inum = generator();
+  inum &= ~(0x80000000);
+  return inum;
+}
+
+int yfs_client::create(inum parent, std::string child_name, fileinfo &fi, inum &child) {
+  
+}

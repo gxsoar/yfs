@@ -209,7 +209,21 @@ yfs_client::status fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->entry_timeout = 0.0;
   e->generation = 0;
   // You fill this in for Lab 2
-  return yfs_client::NOENT;
+  yfs_client::inum parent_inum = parent;
+  yfs_client::fileinfo info;
+  yfs_client::inum child_inum;
+  auto ret = yfs->create(parent_inum, name, info, child_inum);
+  if (ret == yfs_client::EXIST) {
+    return yfs_client::EXIST;
+  }
+  struct stat st;
+  ret = getattr(child_inum, st);
+  if (ret != yfs_client::OK) {
+    return yfs_client::NOENT;
+  }
+  e->ino = child_inum;
+  e->attr = st;
+  return yfs_client::OK;
 }
 
 void fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,

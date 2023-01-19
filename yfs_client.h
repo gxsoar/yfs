@@ -5,12 +5,12 @@
 //#include "yfs_protocol.h"
 #include "extent_client.h"
 #include <vector>
-
+#include <random>
+#include <chrono>
 
 class yfs_client {
   extent_client *ec;
  public:
-
   typedef unsigned long long inum;
   enum xxstatus { OK, RPCERR, NOENT, IOERR, EXIST };
   typedef int status;
@@ -34,6 +34,8 @@ class yfs_client {
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
+  inum createFileInum();  // 产生file inum
+  inum createDirInum();   // 产生dir inum
  public:
 
   yfs_client(std::string, std::string);
@@ -43,6 +45,7 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+  int create(inum parent, std::string name, fileinfo &fi, inum &child);
 };
 
 #endif 

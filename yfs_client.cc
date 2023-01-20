@@ -94,9 +94,9 @@ int yfs_client::create(inum parent, std::string child_name, fileinfo &fi, inum &
   if (ret == extent_protocol::IOERR) {
     return yfs_client::IOERR;
   }
-  // readdir(parent);
 }
 
-int yfs_client::readdir(inum parent, std::vector<dirent> &) {
-
+int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
+  std::string buf;
+  auto ret = ec->get(parent, buf);
 }

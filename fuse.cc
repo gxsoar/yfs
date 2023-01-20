@@ -327,7 +327,11 @@ void fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
   memset(&b, 0, sizeof(b));
 
   // You fill this in for Lab 2
-
+  std::vector<yfs_client::dirent> dirs;
+  yfs->readdir(inum, dirs);
+  for (auto &dir : dirs) {
+    dirbuf_add(&b, dir.name.c_str(), dir.inum);
+  }
   reply_buf_limited(req, b.p, b.size, off, size);
   free(b.p);
 }

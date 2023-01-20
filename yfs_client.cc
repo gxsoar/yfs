@@ -89,5 +89,14 @@ yfs_client::inum yfs_client::createDirInum() {
 }
 
 int yfs_client::create(inum parent, std::string child_name, fileinfo &fi, inum &child) {
-  
+  std::string parent_content;
+  auto ret = ec->get(parent,parent_content);
+  if (ret == extent_protocol::IOERR) {
+    return yfs_client::IOERR;
+  }
+  // readdir(parent);
+}
+
+int yfs_client::readdir(inum parent, std::vector<dirent> &) {
+
 }

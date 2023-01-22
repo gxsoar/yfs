@@ -210,9 +210,8 @@ yfs_client::status fuseserver_createhelper(fuse_ino_t parent, const char *name,
   e->generation = 0;
   // You fill this in for Lab 2
   yfs_client::inum parent_inum = parent;
-  yfs_client::fileinfo info;
   yfs_client::inum child_inum;
-  auto ret = yfs->create(parent_inum, name, info, child_inum);
+  auto ret = yfs->create(parent_inum, name, child_inum);
   if (ret == yfs_client::EXIST) {
     return yfs_client::EXIST;
   }
@@ -272,10 +271,17 @@ void fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   bool found = false;
 
   // You fill this in for Lab 2
-  if (found)
+  yfs_client::inum inum;
+  found = yfs->lookup(parent, name, inum);
+  if (found) {
+    struct stat st;
+    e.ino = inum;
+    getattr(inum, st);
+    e.attr = st;
     fuse_reply_entry(req, &e);
-  else
+  } else {
     fuse_reply_err(req, ENOENT);
+  }
 }
 
 struct dirbuf {

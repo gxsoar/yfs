@@ -3,7 +3,9 @@
 *.o
 *.d
 *.out
+*.bin
 rpc/*.a
 rpc/*.d
 .vscode
 rpc/*.out
+rpc/*.bin

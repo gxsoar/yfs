@@ -125,3 +125,15 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   return yfs_client::OK;
 }
 // dsfadf&123445
+
+bool yfs_client::lookup(inum parent, std::string child_name, inum &child_inum) {
+  std::vector<dirent> dirs;
+  readdir(parent, dirs);
+  for (auto dir : dirs) {
+    if (dir.name == child_name) {
+      child_inum = dir.inum;
+      return true;
+    }
+  }
+  return false;
+}

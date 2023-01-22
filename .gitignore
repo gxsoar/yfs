@@ -11,3 +11,5 @@ rpc/*.out
 rpc/*.bin
 .log
 rpc/*.log
+yfs1/*
+yfs2/*

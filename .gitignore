@@ -9,3 +9,5 @@ rpc/*.d
 .vscode
 rpc/*.out
 rpc/*.bin
+.log
+rpc/*.log

@@ -82,21 +82,46 @@ yfs_client::inum yfs_client::createFileInum() {
 }
 
 yfs_client::inum yfs_client::createDirInum() {
-  std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
-  auto inum = generator();
-  inum &= ~(0x80000000);
+  yfs_client::inum inum;
+  // 随机产生inum号，同时确保目录号不能等于0x00000000000000001
+  while(true) {
+    std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
+    inum = generator();
+    inum &= ~(0x80000000);
+    if (inum != 1) break;
+  }
   return inum;
 }
 
-int yfs_client::create(inum parent, std::string child_name, fileinfo &fi, inum &child) {
+int yfs_client::create(inum parent, std::string child_name, inum &child) {
   std::string parent_content;
-  auto ret = ec->get(parent,parent_content);
-  if (ret == extent_protocol::IOERR) {
-    return yfs_client::IOERR;
+  std::vector<dirent> dirs;
+  readdir(parent, dirs);
+  for (auto dir : dirs) {
+    if (isfile(dir.inum) && dir.name == child_name) {
+      return yfs_client::EXIST;
+    } 
   }
+  child = createFileInum();
+  ec->put(child, child_name);
+  ec->put(parent, filename(child));
+  return yfs_client::OK;
 }
 
 int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   std::string buf;
   auto ret = ec->get(parent, buf);
+  std::stringstream ss(buf);
+  std::vector<std::string> tmp;
+  std::string str;
+  while(ss >> str) tmp.push_back(str);
+  for (int i = 1; i < tmp.size(); ++ i) {
+    auto npos = tmp[i].find_last_of('&');
+    auto name = tmp[i].substr(0, npos);
+    auto str_inum = tmp[i].substr(npos + 1, tmp[i].size() - npos - 1);
+    auto inum = n2i(str_inum);
+    dir_content.push_back({name, inum});
+  }
+  return yfs_client::OK;
 }
+// dsfadf&123445

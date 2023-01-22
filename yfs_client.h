@@ -45,7 +45,7 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
-  int create(inum parent, std::string name, fileinfo &fi, inum &child);
+  int create(inum parent, std::string name, inum &child);
   int readdir(inum inum, std::vector<dirent> &);
 };
 

@@ -18,13 +18,27 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
   if (id_to_name_.count(id) || id_to_attr_.count(id)) {
     return extent_protocol::IOERR;
   }
-  id_to_name_[id] = buf;
-  extent_protocol::attr att;
-  att.size = buf.size();
-  att.ctime = time(nullptr);
-  att.mtime = time(nullptr);
-  att.atime = time(nullptr);
-  id_to_attr_[id] = att;
+  extent_protocol::extentid_t child_id;
+  bool flag = true;
+  // 先检查Buf是不是子目录的id
+  for (auto ch : buf) {
+    if (!isdigit(ch - '0')) {
+      flag = false;
+      break;
+    }
+    child_id = child_id * 10 + ch - '0';
+  }
+  if (flag && child_id & 0x80000000) {
+    dir_content_[id].insert(child_id);
+  } else {
+    id_to_name_[id] = buf;
+    extent_protocol::attr att;
+    att.size = buf.size();
+    att.ctime = time(nullptr);
+    att.mtime = time(nullptr);
+    att.atime = time(nullptr);
+    id_to_attr_[id] = att;
+  }
   return extent_protocol::OK;
 }
 
@@ -34,7 +48,14 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
   if (id_to_name_.count(id) == 0U || id_to_attr_.count(id) == 0U) {
     return extent_protocol::IOERR;
   }
-  buf = id_to_name_[id];
+  buf = id_to_name_[id]; // buf的头部表示的是文件夹的名称
+  buf += " ";
+  for (auto &id : dir_content_[id]) {
+    std::string content = id_to_name_[id];
+    content.push_back('&');
+    buf += (content +  std::to_string(id));
+    buf += " ";
+  }
   id_to_attr_[id].atime = time(nullptr);
   return extent_protocol::OK;
 }

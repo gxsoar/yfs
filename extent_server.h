@@ -24,7 +24,6 @@ class extent_server {
  private:
   std::mutex mutex_;
   std::unordered_map<extent_protocol::extentid_t, std::string> id_to_name_;
-  // std::unordered_map<std::string, extent_protocol::extentid_t> name_to_id;
   std::unordered_map<extent_protocol::extentid_t, extent_protocol::attr> id_to_attr_;
   std::unordered_map<extent_protocol::extentid_t, std::unordered_set<extent_protocol::extentid_t>> dir_content_;
 };

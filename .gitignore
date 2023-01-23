@@ -13,3 +13,14 @@ rpc/*.bin
 rpc/*.log
 yfs1/*
 yfs2/*
+lock_server.log
+yfs_client1.log
+yfs_client2.log
+yfs_client
+lock_demo
+lock_server
+lock_tester
+stop.sh
+test-lab-2-a.pl
+yfs_client
+start.sh

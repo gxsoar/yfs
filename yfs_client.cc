@@ -103,7 +103,9 @@ int yfs_client::create(inum parent, std::string child_name, inum &child) {
     } 
   }
   child = createFileInum();
+  std::cout  << "yfs_client::create: " << "parent id : " << parent<< " child_name = " << child_name << " " << child << " child & 0x80 " << ((child >> 31) & 1 ) << std::endl; 
   ec->put(child, child_name);
+  std::cout << "filename " << filename(child) << std::endl;
   ec->put(parent, filename(child));
   return yfs_client::OK;
 }

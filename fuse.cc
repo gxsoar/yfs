@@ -211,6 +211,7 @@ yfs_client::status fuseserver_createhelper(fuse_ino_t parent, const char *name,
   // You fill this in for Lab 2
   yfs_client::inum parent_inum = parent;
   yfs_client::inum child_inum;
+  // std::cout << "fuseserver_createhelper: " << name << std::endl;
   auto ret = yfs->create(parent_inum, name, child_inum);
   if (ret == yfs_client::EXIST) {
     return yfs_client::EXIST;
@@ -229,6 +230,7 @@ void fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
                        mode_t mode, struct fuse_file_info *fi) {
   struct fuse_entry_param e;
   yfs_client::status ret;
+  std::cout << "fuserver_create " << name << std::endl;
   if ((ret = fuseserver_createhelper(parent, name, mode, &e)) ==
       yfs_client::OK) {
     fuse_reply_create(req, &e, fi);

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
+#include <list>
 
 #include "extent_protocol.h"
 
@@ -25,7 +26,7 @@ class extent_server {
   std::mutex mutex_;
   std::unordered_map<extent_protocol::extentid_t, std::string> id_to_name_;
   std::unordered_map<extent_protocol::extentid_t, extent_protocol::attr> id_to_attr_;
-  std::unordered_map<extent_protocol::extentid_t, std::unordered_set<extent_protocol::extentid_t>> dir_content_;
+  std::unordered_map<extent_protocol::extentid_t, std::unordered_set<std::string>> dir_content_;
 };
 
 #endif

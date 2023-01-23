@@ -24,3 +24,5 @@ stop.sh
 test-lab-2-a.pl
 yfs_client
 start.sh
+extent_server
+pc/rpctest

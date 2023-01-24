@@ -26,3 +26,6 @@ yfs_client
 start.sh
 extent_server
 pc/rpctest
+yfs_client
+extent_server
+extent_server.log

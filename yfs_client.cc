@@ -141,3 +141,17 @@ bool yfs_client::lookup(inum parent, std::string child_name, inum &child_inum) {
   }
   return false;
 }
+
+int yfs_client::setattr(inum inum, fileinfo &fi) {
+  std::string buf;
+  auto ret = ec->get(inum, buf);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  buf.resize(fi.size);
+  ret = ec->put(inum, buf);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  return yfs_client::OK;
+}

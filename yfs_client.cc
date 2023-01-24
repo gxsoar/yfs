@@ -103,9 +103,7 @@ int yfs_client::create(inum parent, std::string child_name, inum &child) {
     } 
   }
   child = createFileInum();
-  std::cout  << "yfs_client::create: " << "parent id : " << parent<< " child_name = " << child_name << " " << child << " child & 0x80 " << ((child >> 31) & 1 ) << std::endl; 
   ec->put(child, child_name);
-  std::cout << "filename " << filename(child) << std::endl;
   ec->put(parent, filename(child));
   return yfs_client::OK;
 }
@@ -113,11 +111,16 @@ int yfs_client::create(inum parent, std::string child_name, inum &child) {
 int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   std::string buf;
   auto ret = ec->get(parent, buf);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
   std::stringstream ss(buf);
   std::vector<std::string> tmp;
   std::string str;
   while(ss >> str) tmp.push_back(str);
-  for (int i = 1; i < tmp.size(); ++ i) {
+  // 保证str的头部存储的是目录名
+  int n = tmp.size();
+  for (int i = 1; i < n; ++ i) {
     auto npos = tmp[i].find_last_of('&');
     auto name = tmp[i].substr(0, npos);
     auto str_inum = tmp[i].substr(npos + 1, tmp[i].size() - npos - 1);
@@ -126,7 +129,6 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   }
   return yfs_client::OK;
 }
-// dsfadf&123445
 
 bool yfs_client::lookup(inum parent, std::string child_name, inum &child_inum) {
   std::vector<dirent> dirs;

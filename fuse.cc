@@ -119,9 +119,8 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
     yfs_client::inum inum = ino;
     st.st_ino = inum;
     st.st_size = attr->st_size;
-    auto ret = getattr(inum, st);
-    bool flag = (ret == yfs_client::OK ? true : false);
-#if flag
+    getattr(inum, st);
+#if 1
     // Change the above line to "#if 1", and your code goes here
     // Note: fill st using getattr before fuse_reply_attr
     fuse_reply_attr(req, &st, 0);
@@ -230,7 +229,6 @@ void fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
                        mode_t mode, struct fuse_file_info *fi) {
   struct fuse_entry_param e;
   yfs_client::status ret;
-  std::cout << "fuserver_create " << name << std::endl;
   if ((ret = fuseserver_createhelper(parent, name, mode, &e)) ==
       yfs_client::OK) {
     fuse_reply_create(req, &e, fi);

@@ -18,14 +18,13 @@ extent_server::extent_server() {
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
   // You fill this in for Lab 2.
   std::scoped_lock<std::mutex> lock(mutex_);
-  extent_protocol::extentid_t child_id = 0;
-  bool flag = true;
-  id_to_name_[id] = buf;
-  dir_content_[id].insert(buf);
-  // std::cout << "extent_server::put : id = " << id << " buf = " << buf << "\n"; 
-  for (auto content_ : dir_content_[1]) {
-    std::cout << "extent_server::put : id = 1 content " << content_ << "\n";
+  if (id_to_name_.count(id) == 0) {
+    id_to_name_[id] = buf;
   }
+  if (dir_content_[id].count(buf)) {
+    return extent_protocol::IOERR;
+  }
+  dir_content_[id].insert(buf);
   extent_protocol::attr att;
   att.size = buf.size();
   att.ctime = time(nullptr);
@@ -48,12 +47,14 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
     return finum;
   };
   buf = id_to_name_[id]; // buf的头部表示的是文件夹的名称
-  auto ite = dir_content_[id].begin();
-  if (*ite == buf) {
-    ++ite;
+  auto buf_ite = dir_content_[id].find(buf);
+  if (buf.empty()) {
+    buf += "/ ";
+  } else {
     buf.push_back(' ');
   }
-  for (; ite != dir_content_[id].end(); ++ ite) {
+  for (auto ite = dir_content_[id].begin(); ite != dir_content_[id].end(); ++ ite) {
+    if (ite->empty() || buf_ite == ite) continue;
     auto inum = str_to_id(*ite);
     std::string str = id_to_name_[inum];
     buf += (str + "&" + *ite);

@@ -112,12 +112,12 @@ sub checkcontent {
     my($d, $name) = @_;
 
     my $f = $d . "/" . $name;
-
     open F, "$f" or die "could not open $f for reading";
     my $c2 = "";
     while(<F>) {
       $c2 .= $_;
     }
+    # print $f;
     close(F);
     $files->{$name} eq $c2 or die "content of $f is incorrect\n";
 }

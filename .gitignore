@@ -22,6 +22,7 @@ lock_server
 lock_tester
 stop.sh
 test-lab-2-a.pl
+test-lab-b-b.pl
 yfs_client
 start.sh
 extent_server

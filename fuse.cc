@@ -115,22 +115,19 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
   if (FUSE_SET_ATTR_SIZE & to_set) {
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
     // You fill this in for Lab 2
-    struct stat st;
-    yfs_client::fileinfo info;
     yfs_client::inum inum = ino;
-    auto ret = yfs->getfile(inum, info);
+    struct stat st;
+    auto ret = yfs->setattr(inum, attr);
     if (ret != yfs_client::OK) {
       fuse_reply_err(req, ENOSYS);
     }
-    info.size = attr->st_size;
-    ret = yfs->setattr(inum, info);
+    ret = getattr(inum, st);
     if (ret != yfs_client::OK) {
       fuse_reply_err(req, ENOSYS);
     }
 #if 1
     // Change the above line to "#if 1", and your code goes here
     // Note: fill st using getattr before fuse_reply_attr
-    getattr(inum, st);
     fuse_reply_attr(req, &st, 0);
 #else
     fuse_reply_err(req, ENOSYS);
@@ -155,8 +152,13 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                      struct fuse_file_info *fi) {
   // You fill this in for Lab 2
-#if 0
+#if 1
   std::string buf;
+  yfs_client::inum inum = ino;
+  auto ret = yfs->read(inum, size, off, buf);
+  if (ret != yfs_client::OK) {
+    fuse_reply_err(req, ENOSYS);
+  }
   // Change the above "#if 0" to "#if 1", and your code goes here
   fuse_reply_buf(req, buf.data(), buf.size());
 #else
@@ -182,8 +184,13 @@ void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 void fuseserver_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
                       size_t size, off_t off, struct fuse_file_info *fi) {
   // You fill this in for Lab 2
-#if 0
+#if 1 
   // Change the above line to "#if 1", and your code goes here
+  yfs_client::inum inum = ino;
+  auto ret = yfs->write(inum, size, off, buf);
+  if (ret != yfs_client::OK) {
+    fuse_reply_err(req, ENOSYS);
+  }
   fuse_reply_write(req, size);
 #else
   fuse_reply_err(req, ENOSYS);

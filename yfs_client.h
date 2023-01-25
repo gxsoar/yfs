@@ -50,7 +50,9 @@ class yfs_client {
   int readdir(inum inum, std::vector<dirent> &);
   bool lookup(inum parent, std::string child_name, inum &child_inum);
   // lab2 part2
-  int setattr(inum, fileinfo &);
+  int setattr(inum, struct stat *attr);
+  int read(inum, const size_t &size, const off_t &off, std::string &buf);
+  int write(inum, const size_t &, const off_t &, const std::string &);
 };
 
 #endif 

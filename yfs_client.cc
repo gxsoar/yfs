@@ -120,7 +120,7 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   while(ss >> str) tmp.push_back(str);
   // 保证str的头部存储的是目录名
   int n = tmp.size();
-  for (int i = 1; i < n; ++ i) {
+  for (int i = 0; i < n; ++ i) {
     auto npos = tmp[i].find_last_of('&');
     auto name = tmp[i].substr(0, npos);
     auto str_inum = tmp[i].substr(npos + 1, tmp[i].size() - npos - 1);
@@ -142,14 +142,53 @@ bool yfs_client::lookup(inum parent, std::string child_name, inum &child_inum) {
   return false;
 }
 
-int yfs_client::setattr(inum inum, fileinfo &fi) {
+int yfs_client::setattr(inum inum, struct stat *attr) {
   std::string buf;
   auto ret = ec->get(inum, buf);
   if (ret != extent_protocol::OK) {
     return yfs_client::IOERR;
   }
-  buf.resize(fi.size);
+  size_t size = attr->st_size;
+  buf.resize(size, '\0');
   ret = ec->put(inum, buf);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  return yfs_client::OK;
+}
+
+int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::string &buf) {
+  std::string str;
+  auto ret = ec->get(inum, str);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  int len = str.size();
+  if (off >= len) {
+    buf = "";
+    return yfs_client::OK;
+  }
+  if (size + off > len) {
+    buf = str.substr(off, len - off);
+  } else {
+    buf = str.substr(off, size);
+  }
+  return yfs_client::OK;
+}
+
+int yfs_client::write(inum inum, const size_t &size, const off_t &off, const std::string &buf) {
+  std::string str;
+  auto ret = ec->get(inum, str);
+  if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  if (off + size > str.size()) {
+    str.resize(off + size, '\0');
+  }
+  for (int i = 0; i < size; ++ i) {
+    str[off + i] = buf[i];
+  }
+  ret = ec->put(inum, str);
   if (ret != extent_protocol::OK) {
     return yfs_client::IOERR;
   }

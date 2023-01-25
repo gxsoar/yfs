@@ -18,13 +18,21 @@ extent_server::extent_server() {
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
   // You fill this in for Lab 2.
   std::scoped_lock<std::mutex> lock(mutex_);
-  if (id_to_name_.count(id) == 0) {
-    id_to_name_[id] = buf;
+  // 如果是文件相关的操作
+  if ((id >> 31) & 1) {
+    if (id_to_name_.count(id) == 0U) {
+      id_to_name_[id] = buf;
+    }
+    file_content_[id] = buf;
+  } else {
+    if (dir_content_[id].empty()) {
+      id_to_name_[id] = buf;
+      dir_content_[id].push_back(buf);
+    } else {
+      id_to_name_[id] = dir_content_[id].front();
+      dir_content_[id].push_back(buf);
+    }
   }
-  if (dir_content_[id].count(buf)) {
-    return extent_protocol::IOERR;
-  }
-  dir_content_[id].insert(buf);
   extent_protocol::attr att;
   att.size = buf.size();
   att.ctime = time(nullptr);
@@ -46,20 +54,19 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
     ist >> finum;
     return finum;
   };
-  buf = id_to_name_[id]; // buf的头部表示的是文件夹的名称
-  auto buf_ite = dir_content_[id].find(buf);
-  if (buf.empty()) {
-    buf += "/ ";
+  // 如果是提取文件的内从
+  if ((id >> 31) & 1) {
+    buf = file_content_[id];
   } else {
-    buf.push_back(' ');
+    for (auto content : dir_content_[id]) {
+      if (content.empty()) continue;
+      auto inum = str_to_id(content);
+      std::string str = id_to_name_[inum];
+      buf += (str + "&" + content);
+      buf.push_back(' ');
+    }
   }
-  for (auto ite = dir_content_[id].begin(); ite != dir_content_[id].end(); ++ ite) {
-    if (ite->empty() || buf_ite == ite) continue;
-    auto inum = str_to_id(*ite);
-    std::string str = id_to_name_[inum];
-    buf += (str + "&" + *ite);
-    buf.push_back(' ');
-  }
+  
   id_to_attr_[id].atime = time(nullptr);
   return extent_protocol::OK;
 }
@@ -93,7 +100,11 @@ int extent_server::remove(extent_protocol::extentid_t id, int &) {
   }
   id_to_name_.erase(id);
   id_to_attr_.erase(id);
-  dir_content_.erase(id);
-  // dir_content_[id].clear();
+  if (dir_content_.count(id)) {
+    dir_content_.erase(id);
+  }
+  if (file_content_.count(id)) {
+    file_content_.erase(id);
+  }
   return extent_protocol::OK;
 }

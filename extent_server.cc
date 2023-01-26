@@ -25,13 +25,11 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
     }
     file_content_[id] = buf;
   } else {
-    if (dir_content_[id].empty()) {
+    if (id_to_name_.count(id) == 0U) {
       id_to_name_[id] = buf;
-      dir_content_[id].push_back(buf);
-    } else {
-      id_to_name_[id] = dir_content_[id].front();
-      dir_content_[id].push_back(buf);
     }
+    dir_content_[id].push_back(buf);
+    file_to_dir_[buf] = id;
   }
   extent_protocol::attr att;
   att.size = buf.size();
@@ -59,10 +57,12 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
     buf = file_content_[id];
   } else {
     for (auto content : dir_content_[id]) {
-      if (content.empty()) continue;
+      if (content.empty()) {
+        continue;
+      }
       auto inum = str_to_id(content);
-      std::string str = id_to_name_[inum];
-      buf += (str + "&" + content);
+      std::string str{id_to_name_[inum]};
+      buf.append(str + "&" + content);
       buf.push_back(' ');
     }
   }
@@ -78,10 +78,6 @@ int extent_server::getattr(extent_protocol::extentid_t id,
   // for now because it's difficult to get FUSE to do anything (including
   // unmount) if getattr fails.
   std::scoped_lock<std::mutex> lock(mutex_);
-  a.size = 0;
-  a.atime = 0;
-  a.mtime = 0;
-  a.ctime = 0;
   if (id_to_attr_.count(id) == 0U) {
     return extent_protocol::IOERR;
   }
@@ -98,13 +94,28 @@ int extent_server::remove(extent_protocol::extentid_t id, int &) {
   if (id_to_name_.count(id) == 0 || id_to_attr_.count(id) == 0U) {
     return extent_protocol::IOERR;
   }
+  auto id_to_str = [&]() {
+     std::ostringstream ost;
+      ost << id;
+      return ost.str();
+  };
+  auto str = id_to_str();
+  auto parent_id = file_to_dir_[str];
+  for (auto ite = dir_content_[parent_id].begin(); ite != dir_content_[parent_id].end(); ++ ite) {
+    if (*ite == str) {
+      dir_content_[parent_id].erase(ite);
+      break;
+    }
+  }
+  id_to_attr_[parent_id].ctime = time(nullptr);
+  id_to_attr_[parent_id].mtime = time(nullptr);
   id_to_name_.erase(id);
   id_to_attr_.erase(id);
   if (dir_content_.count(id)) {
-    dir_content_.erase(id);
+    dir_content_[id].clear();
   }
   if (file_content_.count(id)) {
-    file_content_.erase(id);
+    file_content_[id].clear();
   }
   return extent_protocol::OK;
 }

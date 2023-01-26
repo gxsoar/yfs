@@ -2,14 +2,30 @@
 #define yfs_client_h
 
 #include <string>
-//#include "yfs_protocol.h"
-#include "extent_client.h"
-#include <vector>
-#include <random>
+// #include "yfs_protocol.h"
 #include <chrono>
+#include <random>
+#include <vector>
+
+#include "extent_client.h"
+#include "lock_client.h"
+
+class lock_guard {
+public:
+  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
+    lc_->acquire(lid_);
+  }
+  ~lock_guard() {
+    lc_->release(lid_);
+  }
+private:
+  lock_client *lc_;
+  lock_protocol::lockid_t lid_;
+};
 
 class yfs_client {
   extent_client *ec;
+  lock_client *lc_;
  public:
   typedef unsigned long long inum;
   enum xxstatus { OK, RPCERR, NOENT, IOERR, EXIST };
@@ -37,7 +53,6 @@ class yfs_client {
   inum createFileInum();  // 产生file inum
   inum createDirInum();   // 产生dir inum
  public:
-
   yfs_client(std::string, std::string);
 
   bool isfile(inum);
@@ -48,14 +63,15 @@ class yfs_client {
   // lab2 part1
   int create(const inum parent, const std::string &name, inum &child);
   int readdir(inum inum, std::vector<dirent> &);
-  bool lookup(const inum parent,const std::string &child_name, inum &child_inum);
+  bool lookup(const inum parent, const std::string &child_name,
+              inum &child_inum);
   // lab2 part2
   int setattr(const inum, struct stat *attr);
   int read(const inum, const size_t &size, const off_t &off, std::string &buf);
   int write(const inum, const size_t &, const off_t &, const std::string &);
   // lab3 part1
-  int mkdir(const inum parent,inum &child, const std::string &child_name);
+  int mkdir(const inum parent, inum &child, const std::string &child_name);
   int unlink(const inum parent, const std::string &file_name);
 };
 
-#endif 
+#endif

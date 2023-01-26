@@ -124,6 +124,7 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
     ret = getattr(inum, st);
     if (ret != yfs_client::OK) {
       fuse_reply_err(req, ENOSYS);
+      return;
     }
 #if 1
     // Change the above line to "#if 1", and your code goes here
@@ -158,6 +159,7 @@ void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
   auto ret = yfs->read(inum, size, off, buf);
   if (ret != yfs_client::OK) {
     fuse_reply_err(req, ENOSYS);
+    return;
   }
   // Change the above "#if 0" to "#if 1", and your code goes here
   fuse_reply_buf(req, buf.data(), buf.size());
@@ -190,6 +192,7 @@ void fuseserver_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
   auto ret = yfs->write(inum, size, off, buf);
   if (ret != yfs_client::OK) {
     fuse_reply_err(req, ENOSYS);
+    return;
   }
   fuse_reply_write(req, size);
 #else
@@ -349,7 +352,11 @@ void fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 
   // You fill this in for Lab 2
   std::vector<yfs_client::dirent> dirs;
-  yfs->readdir(inum, dirs);
+  auto ret = yfs->readdir(inum, dirs);
+  if (ret != yfs_client::OK) {
+    fuse_reply_err(req, ENOSYS);
+    return;
+  }
   for (auto &dir : dirs) {
     dirbuf_add(&b, dir.name.c_str(), dir.inum);
   }
@@ -383,7 +390,21 @@ void fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   (void)e;
 
   // You fill this in for Lab 3
-#if 0
+#if 1
+  yfs_client::inum child_inum;
+  yfs_client::inum parent_inum = parent;
+  auto ret = yfs->mkdir(parent_inum, child_inum, name);
+  if (ret != yfs_client::OK) {
+    fuse_reply_err(req, ENOSYS);
+  }
+  struct stat st;
+  ret = getattr(child_inum, st);
+  if (ret != yfs_client::OK) {
+    fuse_reply_err(req, ENOSYS);
+    return;
+  }
+  e.attr = st;
+  e.ino = child_inum;
   fuse_reply_entry(req, &e);
 #else
   fuse_reply_err(req, ENOSYS);
@@ -401,6 +422,16 @@ void fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
   // You fill this in for Lab 3
   // Success:	fuse_reply_err(req, 0);
   // Not found:	fuse_reply_err(req, ENOENT);
+  yfs_client::inum parent_inum = parent;
+  auto ret = yfs->unlink(parent_inum, name);
+  if (ret == yfs_client::NOENT) {
+    fuse_reply_err(req, ENOENT);
+    return;
+  }
+  else if (ret == yfs_client::OK) {
+    fuse_reply_err(req, 0);
+    return;
+  }
   fuse_reply_err(req, ENOSYS);
 }
 

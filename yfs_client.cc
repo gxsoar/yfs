@@ -93,7 +93,7 @@ yfs_client::inum yfs_client::createDirInum() {
   return inum;
 }
 
-int yfs_client::create(inum parent, std::string child_name, inum &child) {
+int yfs_client::create(const inum parent, const std::string &child_name, inum &child) {
   std::string parent_content;
   std::vector<dirent> dirs;
   readdir(parent, dirs);
@@ -125,12 +125,12 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
     auto name = tmp[i].substr(0, npos);
     auto str_inum = tmp[i].substr(npos + 1, tmp[i].size() - npos - 1);
     auto inum = n2i(str_inum);
-    dir_content.push_back({name, inum});
+    if (!name.empty())dir_content.push_back({name, inum});
   }
   return yfs_client::OK;
 }
 
-bool yfs_client::lookup(inum parent, std::string child_name, inum &child_inum) {
+bool yfs_client::lookup(inum parent, const std::string &child_name, inum &child_inum) {
   std::vector<dirent> dirs;
   readdir(parent, dirs);
   for (auto dir : dirs) {
@@ -176,7 +176,7 @@ int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::strin
   return yfs_client::OK;
 }
 
-int yfs_client::write(inum inum, const size_t &size, const off_t &off, const std::string &buf) {
+int yfs_client::write(const inum inum, const size_t &size, const off_t &off, const std::string &buf) {
   std::string str;
   auto ret = ec->get(inum, str);
   if (ret != extent_protocol::OK) {
@@ -190,6 +190,31 @@ int yfs_client::write(inum inum, const size_t &size, const off_t &off, const std
   }
   ret = ec->put(inum, str);
   if (ret != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  return yfs_client::OK;
+}
+
+int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::string &child_name) {
+  if (lookup(parent_inum, child_name, child_inum)) {
+    return yfs_client::EXIST;
+  }
+  child_inum = createDirInum();
+  if (ec->put(child_inum, child_name) != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  if (ec->put(parent_inum, filename(child_inum)) != extent_protocol::OK) {
+    return yfs_client::IOERR;
+  }
+  return yfs_client::OK;
+}
+
+int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
+  yfs_client::inum file_inum;
+  if (!lookup(parent_inum, file_name, file_inum)) {
+    return yfs_client::NOENT;
+  }
+  if (ec->remove(file_inum) != extent_protocol::OK) {
     return yfs_client::IOERR;
   }
   return yfs_client::OK;

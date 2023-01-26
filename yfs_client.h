@@ -46,13 +46,16 @@ class yfs_client {
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
   // lab2 part1
-  int create(inum parent, std::string name, inum &child);
+  int create(const inum parent, const std::string &name, inum &child);
   int readdir(inum inum, std::vector<dirent> &);
-  bool lookup(inum parent, std::string child_name, inum &child_inum);
+  bool lookup(const inum parent,const std::string &child_name, inum &child_inum);
   // lab2 part2
-  int setattr(inum, struct stat *attr);
-  int read(inum, const size_t &size, const off_t &off, std::string &buf);
-  int write(inum, const size_t &, const off_t &, const std::string &);
+  int setattr(const inum, struct stat *attr);
+  int read(const inum, const size_t &size, const off_t &off, std::string &buf);
+  int write(const inum, const size_t &, const off_t &, const std::string &);
+  // lab3 part1
+  int mkdir(const inum parent,inum &child, const std::string &child_name);
+  int unlink(const inum parent, const std::string &file_name);
 };
 
 #endif 

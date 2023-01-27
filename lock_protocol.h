@@ -19,7 +19,7 @@ enum class LockState { FREE, LOCKED };
 
 class lock {
 public:
-  lock(lock_protocol::lockid_t ld) : lock_id_(ld) {}
+  lock(lock_protocol::lockid_t ld);
   std::condition_variable cv_;
   LockState lock_state_;
   lock_protocol::lockid_t lock_id_;

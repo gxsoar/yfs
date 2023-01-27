@@ -14,6 +14,7 @@
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
   ec = new extent_client(extent_dst);
+  lc_ = new lock_client(lock_dst);
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -166,7 +167,7 @@ int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::strin
     return yfs_client::IOERR;
   }
   auto len = str.size();
-  if (off - len >= 0) {
+  if (off >= len) {
     buf = "";
     return yfs_client::OK;
   }

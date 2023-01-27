@@ -10,19 +10,6 @@
 #include "extent_client.h"
 #include "lock_client.h"
 
-class lock_guard {
-public:
-  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
-    lc_->acquire(lid_);
-  }
-  ~lock_guard() {
-    lc_->release(lid_);
-  }
-private:
-  lock_client *lc_;
-  lock_protocol::lockid_t lid_;
-};
-
 class yfs_client {
   extent_client *ec;
   lock_client *lc_;
@@ -72,6 +59,19 @@ class yfs_client {
   // lab3 part1
   int mkdir(const inum parent, inum &child, const std::string &child_name);
   int unlink(const inum parent, const std::string &file_name);
+};
+
+class lock_guard {
+public:
+  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
+    lc_->acquire(lid_);
+  }
+  ~lock_guard() {
+    lc_->release(lid_);
+  }
+private:
+  lock_client *lc_;
+  lock_protocol::lockid_t lid_;
 };
 
 #endif

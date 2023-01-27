@@ -653,9 +653,6 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
       return NEW;
   }
   auto &clt_window = reply_window_[clt_nonce];
-  if (clt_window.front().xid > xid) {
-    return FORGOTTEN;
-  }
   for (auto ite = clt_window.begin(); ite != clt_window.end(); ) {
     if (ite->xid < xid_rep) {
       ite->cb_present = false;
@@ -671,10 +668,22 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
       }
       return INPROGRESS;
     }
+    if (clt_window.front().xid > xid) {
+      return FORGOTTEN;
+    }
     ++ite;
   }
   reply_t tmp(xid);
-  clt_window.push_back(tmp);
+  auto ite = clt_window.begin();
+  for (; ite != clt_window.end(); ++ ite) {
+    if (ite->xid > xid) {
+      clt_window.insert(ite, tmp);
+      break;
+    }
+  }
+  if (ite == clt_window.end()) {
+    clt_window.push_back(tmp);
+  }
   return NEW;
 }
 
@@ -692,7 +701,8 @@ void rpcs::add_reply(unsigned int clt_nonce, unsigned int xid, char *b,
     ite->buf = b;
     ite->sz = sz;
     ite->cb_present = true;
-  } else {
+  } 
+  else {
     reply_t tmp(xid);
     tmp.buf = b;
     tmp.sz = sz;

@@ -51,23 +51,33 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
 }
 
 lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
+  std::unique_lock<std::mutex> ulock(mutex_);
   if (!lock_table_.count(lid)) {
     return lock_protocol::IOERR;
   }
   lock_table_[lid]->setClientLockState(ClientLockState::FREE);
-  // 唤醒所有等待的线程
+  lock_table_[lid]->eraseThread(std::this_thread::get_id());
   lock_table_[lid]->cv_.notify_all();
   return lock_protocol::OK;
 }
 
 rlock_protocol::status lock_client_cache::revoke_handler(
     lock_protocol::lockid_t lid, int &) {
-  int ret = rlock_protocol::OK;
-  return ret;
+  std::unique_lock<std::mutex> ulock(mutex_);
+  if (!lock_table_.count(lid)) {
+    return rlock_protocol::RPCERR;
+  }
+  while(lock_table_[lid]->getClientLockState() != ClientLockState::FREE) {
+    lock_table_[lid]->cv_.wait(ulock);
+  }
+  lock_table_[lid]->setClientLockState(ClientLockState::NONE);
+  lock_table_.erase(lid);
+  return rlock_protocol::OK;
 }
 
 rlock_protocol::status lock_client_cache::retry_handler(
     lock_protocol::lockid_t lid, int &) {
   int ret = rlock_protocol::OK;
+
   return ret;
 }

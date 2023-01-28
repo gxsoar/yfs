@@ -20,15 +20,9 @@ yfs_client
 lock_demo
 lock_server
 lock_tester
-stop.sh
-test-lab-2-a.pl
-test-lab-b-b.pl
 yfs_client
-start.sh
 extent_server
 pc/rpctest
 yfs_client
 extent_server
 extent_server.log
-test-lab-3-b
-test-lab-3-c

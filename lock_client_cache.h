@@ -5,6 +5,14 @@
 #define lock_client_cache_h
 
 #include <string>
+#include <mutex>
+#include <thread>
+#include <list>
+#include <map>
+#include <unordered_map>
+#include <algorithm>
+#include <unordered_set>
+
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_client.h"
@@ -34,7 +42,39 @@ class lock_client_cache : public lock_client {
                                         int &);
   rlock_protocol::status retry_handler(lock_protocol::lockid_t, 
                                        int &);
+private:
+  std::unordered_map<lock_protocol::lockid_t, Lock*> lock_table_;
+  std::mutex mutex_;
 };
 
+enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
 
+class Lock {
+public:
+  Lock(lock_protocol::lockid_t lid) : lid_(lid) {}
+
+  lock_protocol::lockid_t getLockId() { return lid_; }
+
+  ClientLockState getClientLockState() { return state_; }
+
+  void setClientLockState(ClientLockState state) { state_ = state; }
+
+  bool operator==(const Lock &rhs) { return rhs.lid_ == lid_; }
+
+  void addThread(std::thread::id id) { thread_set_.insert(id); }
+
+  void eraseThread(std::thread::id id) {
+    if (thread_set_.count(id)) {
+      thread_set_.erase(id);
+    }
+  }
+
+public:
+  std::condition_variable cv_;
+
+private:
+  lock_protocol::lockid_t lid_;
+  ClientLockState state_;
+  std::unordered_set<std::thread::id> thread_set_;
+};
 #endif

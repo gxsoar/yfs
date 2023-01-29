@@ -47,9 +47,11 @@ public:
     return (wait_client_set_.count(wait_id) != 0U);
   }
 
+  std::string getWaitClient() { return *wait_client_set_.begin();}
+
   bool waitClientSetEmpty() { return wait_client_set_.empty(); }
 
-  std::string getLockOwner() { return owner_; }
+  std::string& getLockOwner() { return owner_; }
 
   void setLockOwner(const std::string &owner) { owner_ = owner; }
 

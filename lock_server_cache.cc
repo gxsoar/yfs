@@ -54,8 +54,8 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
     }
   }
   if (revoke) {
-    auto hold_client_id = lock.getLockOwner();
-    handle h(hold_client_id);
+    auto &owner = lock.getLockOwner();
+    handle h(owner);
     ulock.unlock();
     int r;
     h.safebind()->call(rlock_protocol::revoke, lid, r);
@@ -66,7 +66,33 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
 int lock_server_cache::release(lock_protocol::lockid_t lid, std::string id,
                                int &r) {
   lock_protocol::status ret = lock_protocol::OK;
-
+  std::unique_lock<std::mutex> ulock(mutex_);
+  if (lock_table_.count(lid) == 0U) {
+    return lock_protocol::RPCERR;
+  }
+  auto &lock = lock_table_[lid];
+  if (lock.getServerLockState() == ServerLockState::FREE || lock.getServerLockState() == ServerLockState::RETRYING) {
+    ret = lock_protocol::RPCERR;
+  } else if (lock.getServerLockState() == ServerLockState::LOCKED) {
+    lock.setServerLockState(ServerLockState::FREE);
+    auto &owner = lock.getLockOwner();
+    owner.clear();
+    ret = lock_protocol::OK;
+  } else {
+    lock.setServerLockState(ServerLockState::RETRYING);
+    auto &owner = lock.getLockOwner();
+    owner.clear();
+    if (lock.waitClientSetEmpty()) {
+      ret = lock_protocol::RPCERR;
+    } else {
+      auto wait_client = lock.getWaitClient();
+      handle h(wait_client);
+      int r;
+      ret = lock_protocol::OK;
+      ulock.unlock();
+      h.safebind()->call(rlock_protocol::retry, lid, r);
+    }
+  }
   return ret;
 }
 

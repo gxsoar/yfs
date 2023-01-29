@@ -40,7 +40,10 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
   }
   lock_table_[lid]->setClientLockState(ClientLockState::ACQUIRING);
   int r;
+  // 发送rpc的时候不能加锁需要解锁
+  ulock.unlock();
   auto ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
+  ulock.lock();
   if (ret == lock_protocol::OK) {
     lock_table_[lid]->setClientLockState(ClientLockState::LOCKED);
     lock_table_[lid]->addThread(std::this_thread::get_id());
@@ -70,7 +73,16 @@ rlock_protocol::status lock_client_cache::revoke_handler(
   while(lock_table_[lid]->getClientLockState() != ClientLockState::FREE) {
     lock_table_[lid]->cv_.wait(ulock);
   }
+  lock_table_[lid]->setClientLockState(ClientLockState::RELEASING);
+  int r;
+  ulock.unlock();
+  auto ret = cl->call(lock_protocol::release, cl->id(), lid, r);
+  ulock.lock();
+  if (ret != lock_protocol::OK) {
+    return rlock_protocol::RPCERR;
+  }
   lock_table_[lid]->setClientLockState(ClientLockState::NONE);
+  lock_table_[lid]->cv_.notify_all();
   lock_table_.erase(lid);
   return rlock_protocol::OK;
 }

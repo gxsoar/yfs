@@ -28,8 +28,8 @@ lock_client_cache::lock_client_cache(std::string xdst,
 lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = lock_protocol::OK;
-  if (lock_table_.find(lid) == lock_table_.end()) {
-    lock_table_.emplace(lid, Lock(lid, ClientLockState::NONE));
+  if (lock_table_.count(lid) == 0U) {
+    lock_table_.emplace(std::make_pair(lid, Lock(lid, ClientLockState::NONE)));
   }
   auto &lock = lock_table_[lid];
   while (true) {
@@ -92,7 +92,7 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
 lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = lock_protocol::OK;
-  if (lock_table_.find(lid) == lock_table_.end()) {
+  if (lock_table_.count(lid) == 0U) {
     return lock_protocol::NOENT;
   }
   auto &lock = lock_table_[lid];
@@ -115,7 +115,7 @@ lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
 rlock_protocol::status lock_client_cache::revoke_handler(
     lock_protocol::lockid_t lid, int &) {
   std::unique_lock<std::mutex> ulock(mutex_);
-  if (lock_table_.find(lid) == lock_table_.end() || lock_table_[lid].getClientLockState() == ClientLockState::NONE) {
+  if (lock_table_.count(lid) == 0U || lock_table_[lid].getClientLockState() == ClientLockState::NONE) {
     return rlock_protocol::RPCERR;
   }
   auto &lock = lock_table_[lid];
@@ -140,8 +140,9 @@ rlock_protocol::status lock_client_cache::revoke_handler(
 
 rlock_protocol::status lock_client_cache::retry_handler(
     lock_protocol::lockid_t lid, int &) {
+  std::unique_lock<std::mutex> ulock(mutex_);
   int ret = rlock_protocol::OK;
-  if (lock_table_.find(lid) == lock_table_.end()) {
+  if (lock_table_.count(lid) == 0U) {
     return rlock_protocol::RPCERR;
   }
   auto &lock = lock_table_[lid];

@@ -9,21 +9,6 @@
 #include "lock_server.h"
 #include "rpc.h"
 
-class lock_server_cache {
- private:
-  int nacquire;
-  // 维护一个lock_server所持有的锁的集合
-  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
-  std::mutex mutex_;
-private:
-
- public:
-  lock_server_cache();
-  lock_protocol::status stat(lock_protocol::lockid_t, int &);
-  int acquire(lock_protocol::lockid_t, std::string id, int &);
-  int release(lock_protocol::lockid_t, std::string id, int &);
-};
-
 enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING};
 
 class Lock {
@@ -64,6 +49,21 @@ private:
   lock_protocol::lockid_t lid_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
+};
+
+class lock_server_cache {
+ private:
+  int nacquire;
+  // 维护一个lock_server所持有的锁的集合
+  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
+  std::mutex mutex_;
+private:
+
+ public:
+  lock_server_cache();
+  lock_protocol::status stat(lock_protocol::lockid_t, int &);
+  int acquire(lock_protocol::lockid_t, std::string id, int &);
+  int release(lock_protocol::lockid_t, std::string id, int &);
 };
 
 #endif

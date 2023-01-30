@@ -27,6 +27,32 @@ class lock_release_user {
   virtual ~lock_release_user() {};
 };
 
+enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
+
+class Lock {
+public:
+  Lock(lock_protocol::lockid_t lid, ClientLockState state) : lid_(lid), state_(state) {}
+
+  lock_protocol::lockid_t getLockId() { return lid_; }
+
+  ClientLockState getClientLockState() { return state_; }
+
+  void setClientLockState(ClientLockState state) { state_ = state; }
+
+  bool operator==(const Lock &rhs) { return rhs.lid_ == lid_; }
+
+public:
+  std::condition_variable retry_cv_;
+  std::condition_variable wait_cv_;
+  std::condition_variable release_cv_;
+  bool revoked_{false};
+  bool retry_{false};
+
+private:
+  lock_protocol::lockid_t lid_;
+  ClientLockState state_;
+};
+
 class lock_client_cache : public lock_client {
  private:
   class lock_release_user *lu;
@@ -47,38 +73,4 @@ private:
   std::mutex mutex_;
 };
 
-enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
-
-class Lock {
-public:
-  Lock(lock_protocol::lockid_t lid, ClientLockState state) : lid_(lid), state_(state) {}
-
-  lock_protocol::lockid_t getLockId() { return lid_; }
-
-  ClientLockState getClientLockState() { return state_; }
-
-  void setClientLockState(ClientLockState state) { state_ = state; }
-
-  bool operator==(const Lock &rhs) { return rhs.lid_ == lid_; }
-
-  void addThread(std::thread::id id) { thread_set_.insert(id); }
-
-  void eraseThread(std::thread::id id) {
-    if (thread_set_.count(id)) {
-      thread_set_.erase(id);
-    }
-  }
-
-public:
-  std::condition_variable retry_cv_;
-  std::condition_variable wait_cv_;
-  std::condition_variable release_cv_;
-  bool revoked_{false};
-  bool retry_{false};
-
-private:
-  lock_protocol::lockid_t lid_;
-  ClientLockState state_;
-  std::unordered_set<std::thread::id> thread_set_;
-};
 #endif

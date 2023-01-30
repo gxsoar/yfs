@@ -43,10 +43,10 @@ public:
 private:
   // 保存锁的持有者的id
   std::string owner_;
-  // 保存锁的状态
-  ServerLockState state_;
   // 锁的id
   lock_protocol::lockid_t lid_;
+  // 保存锁的状态
+  ServerLockState state_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
 };

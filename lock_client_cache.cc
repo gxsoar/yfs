@@ -91,41 +91,62 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
 
 lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
-  if (!lock_table_.count(lid)) {
-    return lock_protocol::IOERR;
+  int ret = lock_protocol::OK;
+  if (lock_table_.find(lid) == lock_table_.end()) {
+    return lock_protocol::NOENT;
   }
-  lock_table_[lid]->setClientLockState(ClientLockState::FREE);
-  lock_table_[lid]->eraseThread(std::this_thread::get_id());
-  lock_table_[lid]->cv_.notify_all();
-  return lock_protocol::OK;
+  auto &lock = lock_table_[lid];
+  if (lock.revoked_) {
+    lock.revoked_ = false;
+    lock.setClientLockState(ClientLockState::RELEASING);
+    ulock.unlock();
+    int r;
+    ret = cl->call(lock_protocol::release, cl->id(), lid, r);
+    ulock.lock();
+    lock.setClientLockState(ClientLockState::NONE);
+    lock.release_cv_.notify_all();
+    return ret;
+  }
+  lock.setClientLockState(ClientLockState::FREE);
+  lock.wait_cv_.notify_one();
+  return ret;
 }
 
 rlock_protocol::status lock_client_cache::revoke_handler(
     lock_protocol::lockid_t lid, int &) {
   std::unique_lock<std::mutex> ulock(mutex_);
-  if (!lock_table_.count(lid)) {
+  if (lock_table_.find(lid) == lock_table_.end() || lock_table_[lid].getClientLockState() == ClientLockState::NONE) {
     return rlock_protocol::RPCERR;
   }
-  while (lock_table_[lid]->getClientLockState() != ClientLockState::FREE) {
-    lock_table_[lid]->cv_.wait(ulock);
+  auto &lock = lock_table_[lid];
+  int ret = rlock_protocol::OK;
+  if (lock.getClientLockState() == ClientLockState::FREE) {
+    lock.setClientLockState(ClientLockState::RELEASING);
+    ulock.unlock();
+    int r;
+    ret = cl->call(lock_protocol::release, cl->id(), lid, r);
+    ulock.lock();
+    if (ret != lock_protocol::OK) {
+      return lock_protocol::RPCERR;
+    }
+    lock.setClientLockState(ClientLockState::NONE);
+    lock.release_cv_.notify_all();
   }
-  lock_table_[lid]->setClientLockState(ClientLockState::RELEASING);
-  int r;
-  ulock.unlock();
-  auto ret = cl->call(lock_protocol::release, cl->id(), lid, r);
-  ulock.lock();
-  if (ret != lock_protocol::OK) {
-    return rlock_protocol::RPCERR;
+  else {
+    lock.revoked_ = true; 
   }
-  lock_table_[lid]->setClientLockState(ClientLockState::NONE);
-  lock_table_[lid]->cv_.notify_all();
-  lock_table_.erase(lid);
-  return rlock_protocol::OK;
+  return ret;
 }
 
 rlock_protocol::status lock_client_cache::retry_handler(
     lock_protocol::lockid_t lid, int &) {
   int ret = rlock_protocol::OK;
-
+  if (lock_table_.find(lid) == lock_table_.end()) {
+    return rlock_protocol::RPCERR;
+  }
+  auto &lock = lock_table_[lid];
+  lock.setClientLockState(ClientLockState::FREE);
+  lock.retry_ = true;
+  lock.retry_cv_.notify_all();
   return ret;
 }

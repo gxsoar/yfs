@@ -27,28 +27,64 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
 lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
-  // 先检查是否有其他线程持有该锁
-  if (lock_table_.count(lid)) {
-    while(lock_table_[lid]->getClientLockState() == ClientLockState::LOCKED) {
-      lock_table_[lid]->cv_.wait(ulock);
-    }
-    if (lock_table_[lid]->getClientLockState() == ClientLockState::FREE) {
-      lock_table_[lid]->setClientLockState(ClientLockState::LOCKED);
-      lock_table_[lid]->addThread(std::this_thread::get_id());
-      return lock_protocol::OK;
-    }
+  int ret = lock_protocol::OK;
+  if (lock_table_.find(lid) == lock_table_.end()) {
+    lock_table_.emplace(lid, Lock(lid, ClientLockState::NONE));
   }
-  lock_table_[lid]->setClientLockState(ClientLockState::ACQUIRING);
-  int r;
-  // 发送rpc的时候不能加锁需要解锁
-  ulock.unlock();
-  auto ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
-  ulock.lock();
-  if (ret == lock_protocol::OK) {
-    lock_table_[lid]->setClientLockState(ClientLockState::LOCKED);
-    lock_table_[lid]->addThread(std::this_thread::get_id());
-  } else {
-    lock_table_[lid]->setClientLockState(ClientLockState::NONE);
+  auto &lock = lock_table_[lid];
+  while (true) {
+    switch (lock.getClientLockState()) {
+      case ClientLockState::NONE: {
+        lock.setClientLockState(ClientLockState::ACQUIRING);
+        lock.retry_ = false;
+        int r;
+        ulock.unlock();
+        auto server_ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
+        ulock.lock();
+        if (server_ret == lock_protocol::RETRY) {
+          if (!lock.retry_) {
+            lock.retry_cv_.wait(ulock);
+          }
+          break;
+        } else {
+          lock.setClientLockState(ClientLockState::LOCKED);
+          return lock_protocol::OK;
+        }
+      }
+      case ClientLockState::FREE: {
+        lock.setClientLockState(ClientLockState::LOCKED);
+        return lock_protocol::OK;
+      }
+      case ClientLockState::LOCKED: {
+        lock.wait_cv_.wait(ulock);
+        break;
+      }
+      case ClientLockState::ACQUIRING: {
+        if (!lock.retry_) {
+          // 如果没有收到retry就将其挂起
+          lock.retry_cv_.wait(ulock);
+        } else {
+          // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达, 已经收到了retry就向 server请求锁
+          ulock.unlock();
+          int r;
+          ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
+          ulock.lock();
+          if (ret == lock_protocol::OK) {
+            lock.setClientLockState(ClientLockState::LOCKED);
+            return ret;
+          } else if (ret == lock_protocol::RETRY) {
+            if (!lock.retry_) {
+              lock.release_cv_.wait(ulock);
+            }
+          }
+        }
+        break;
+      }
+      case ClientLockState::RELEASING: {
+        lock.release_cv_.wait(ulock);
+        break;
+      }
+    }
   }
   return ret;
 }
@@ -70,7 +106,7 @@ rlock_protocol::status lock_client_cache::revoke_handler(
   if (!lock_table_.count(lid)) {
     return rlock_protocol::RPCERR;
   }
-  while(lock_table_[lid]->getClientLockState() != ClientLockState::FREE) {
+  while (lock_table_[lid]->getClientLockState() != ClientLockState::FREE) {
     lock_table_[lid]->cv_.wait(ulock);
   }
   lock_table_[lid]->setClientLockState(ClientLockState::RELEASING);

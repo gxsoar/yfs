@@ -55,7 +55,7 @@ class lock_server_cache {
  private:
   int nacquire;
   // 维护一个lock_server所持有的锁的集合
-  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>> lock_table_;
   std::mutex mutex_;
 private:
 

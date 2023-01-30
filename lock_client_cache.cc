@@ -28,41 +28,44 @@ lock_client_cache::lock_client_cache(std::string xdst,
 lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = lock_protocol::OK;
+  std::shared_ptr<Lock> lock;
   if (lock_table_.count(lid) == 0U) {
-    lock_table_.emplace(std::make_pair(lid, Lock(lid, ClientLockState::NONE)));
+    lock = std::make_shared<Lock>(lid, ClientLockState::NONE);
+    lock_table_[lid] = lock;
   }
-  auto &lock = lock_table_[lid];
+  auto ite = lock_table_.find(lid);
+  lock = ite->second;
   while (true) {
-    switch (lock.getClientLockState()) {
+    switch (lock->getClientLockState()) {
       case ClientLockState::NONE: {
-        lock.setClientLockState(ClientLockState::ACQUIRING);
-        lock.retry_ = false;
+        lock->setClientLockState(ClientLockState::ACQUIRING);
+        lock->retry_ = false;
         int r;
         ulock.unlock();
         auto server_ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
-          if (!lock.retry_) {
-            lock.retry_cv_.wait(ulock);
+          if (!lock->retry_) {
+            lock->retry_cv_.wait(ulock);
           }
           break;
         } else {
-          lock.setClientLockState(ClientLockState::LOCKED);
+          lock->setClientLockState(ClientLockState::LOCKED);
           return lock_protocol::OK;
         }
       }
       case ClientLockState::FREE: {
-        lock.setClientLockState(ClientLockState::LOCKED);
+        lock->setClientLockState(ClientLockState::LOCKED);
         return lock_protocol::OK;
       }
       case ClientLockState::LOCKED: {
-        lock.wait_cv_.wait(ulock);
+        lock->wait_cv_.wait(ulock);
         break;
       }
       case ClientLockState::ACQUIRING: {
-        if (!lock.retry_) {
+        if (!lock->retry_) {
           // 如果没有收到retry就将其挂起
-          lock.retry_cv_.wait(ulock);
+          lock->retry_cv_.wait(ulock);
         } else {
           // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达, 已经收到了retry就向 server请求锁
           ulock.unlock();
@@ -70,18 +73,18 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
           ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
-            lock.setClientLockState(ClientLockState::LOCKED);
+            lock->setClientLockState(ClientLockState::LOCKED);
             return ret;
           } else if (ret == lock_protocol::RETRY) {
-            if (!lock.retry_) {
-              lock.release_cv_.wait(ulock);
+            if (!lock->retry_) {
+              lock->release_cv_.wait(ulock);
             }
           }
         }
         break;
       }
       case ClientLockState::RELEASING: {
-        lock.release_cv_.wait(ulock);
+        lock->release_cv_.wait(ulock);
         break;
       }
     }
@@ -95,33 +98,34 @@ lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
   if (lock_table_.count(lid) == 0U) {
     return lock_protocol::NOENT;
   }
-  auto &lock = lock_table_[lid];
-  if (lock.revoked_) {
-    lock.revoked_ = false;
-    lock.setClientLockState(ClientLockState::RELEASING);
+  auto ite = lock_table_.find(lid);
+  auto lock = ite->second;
+  if (lock->revoked_) {
+    lock->revoked_ = false;
+    lock->setClientLockState(ClientLockState::RELEASING);
     ulock.unlock();
     int r;
     ret = cl->call(lock_protocol::release, cl->id(), lid, r);
     ulock.lock();
-    lock.setClientLockState(ClientLockState::NONE);
-    lock.release_cv_.notify_all();
+    lock->setClientLockState(ClientLockState::NONE);
+    lock->release_cv_.notify_all();
     return ret;
   }
-  lock.setClientLockState(ClientLockState::FREE);
-  lock.wait_cv_.notify_one();
+  lock->setClientLockState(ClientLockState::FREE);
+  lock->wait_cv_.notify_one();
   return ret;
 }
 
 rlock_protocol::status lock_client_cache::revoke_handler(
     lock_protocol::lockid_t lid, int &) {
   std::unique_lock<std::mutex> ulock(mutex_);
-  if (lock_table_.count(lid) == 0U || lock_table_[lid].getClientLockState() == ClientLockState::NONE) {
+  if (lock_table_.count(lid) == 0U || lock_table_[lid]->getClientLockState() == ClientLockState::NONE) {
     return rlock_protocol::RPCERR;
   }
-  auto &lock = lock_table_[lid];
+  auto lock = lock_table_[lid];
   int ret = rlock_protocol::OK;
-  if (lock.getClientLockState() == ClientLockState::FREE) {
-    lock.setClientLockState(ClientLockState::RELEASING);
+  if (lock->getClientLockState() == ClientLockState::FREE) {
+    lock->setClientLockState(ClientLockState::RELEASING);
     ulock.unlock();
     int r;
     ret = cl->call(lock_protocol::release, cl->id(), lid, r);
@@ -129,11 +133,11 @@ rlock_protocol::status lock_client_cache::revoke_handler(
     if (ret != lock_protocol::OK) {
       return lock_protocol::RPCERR;
     }
-    lock.setClientLockState(ClientLockState::NONE);
-    lock.release_cv_.notify_all();
+    lock->setClientLockState(ClientLockState::NONE);
+    lock->release_cv_.notify_all();
   }
   else {
-    lock.revoked_ = true; 
+    lock->revoked_ = true; 
   }
   return ret;
 }
@@ -145,9 +149,9 @@ rlock_protocol::status lock_client_cache::retry_handler(
   if (lock_table_.count(lid) == 0U) {
     return rlock_protocol::RPCERR;
   }
-  auto &lock = lock_table_[lid];
-  lock.setClientLockState(ClientLockState::FREE);
-  lock.retry_ = true;
-  lock.retry_cv_.notify_all();
+  auto lock = lock_table_[lid];
+  lock->setClientLockState(ClientLockState::FREE);
+  lock->retry_ = true;
+  lock->retry_cv_.notify_all();
   return ret;
 }

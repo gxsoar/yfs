@@ -69,7 +69,7 @@ class lock_client_cache : public lock_client {
   rlock_protocol::status retry_handler(lock_protocol::lockid_t, 
                                        int &);
 private:
-  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>> lock_table_;
   std::mutex mutex_;
 };
 

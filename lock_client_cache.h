@@ -43,7 +43,7 @@ class lock_client_cache : public lock_client {
   rlock_protocol::status retry_handler(lock_protocol::lockid_t, 
                                        int &);
 private:
-  std::unordered_map<lock_protocol::lockid_t, Lock*> lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
   std::mutex mutex_;
 };
 
@@ -51,7 +51,7 @@ enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
 
 class Lock {
 public:
-  Lock(lock_protocol::lockid_t lid) : lid_(lid) {}
+  Lock(lock_protocol::lockid_t lid, ClientLockState state) : lid_(lid), state_(state) {}
 
   lock_protocol::lockid_t getLockId() { return lid_; }
 
@@ -70,7 +70,11 @@ public:
   }
 
 public:
-  std::condition_variable cv_;
+  std::condition_variable retry_cv_;
+  std::condition_variable wait_cv_;
+  std::condition_variable release_cv_;
+  bool revoked_{false};
+  bool retry_{false};
 
 private:
   lock_protocol::lockid_t lid_;

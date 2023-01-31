@@ -33,8 +33,7 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
     lock = std::make_shared<Lock>(lid, ClientLockState::NONE);
     lock_table_[lid] = lock;
   }
-  auto ite = lock_table_.find(lid);
-  lock = ite->second;
+  lock = lock_table_[lid];
   while (true) {
     switch (lock->getClientLockState()) {
       case ClientLockState::NONE: {

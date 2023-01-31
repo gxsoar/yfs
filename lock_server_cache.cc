@@ -21,7 +21,8 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
   if (lock_table_.count(lid) == 0U) {
     lock = std::make_shared<Lock>(lid, ServerLockState::FREE);
     lock_table_[lid] = lock;
-  }
+  } 
+  lock = lock_table_[lid];
   lock_protocol::status ret = lock_protocol::OK;
   bool revoke = false;
   if (lock->getServerLockState() == ServerLockState::FREE) {

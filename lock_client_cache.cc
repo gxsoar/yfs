@@ -42,7 +42,7 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
         lock->retry_ = false;
         int r;
         ulock.unlock();
-        auto server_ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
+        auto server_ret = cl->call(lock_protocol::acquire, lid, id, r);
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
@@ -70,7 +70,7 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
           // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达, 已经收到了retry就向 server请求锁
           ulock.unlock();
           int r;
-          ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
+          ret = cl->call(lock_protocol::acquire, lid, id, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
             lock->setClientLockState(ClientLockState::LOCKED);
@@ -105,7 +105,7 @@ lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
     lock->setClientLockState(ClientLockState::RELEASING);
     ulock.unlock();
     int r;
-    ret = cl->call(lock_protocol::release, cl->id(), lid, r);
+    ret = cl->call(lock_protocol::release, lid, id, r);
     ulock.lock();
     lock->setClientLockState(ClientLockState::NONE);
     lock->release_cv_.notify_all();
@@ -128,7 +128,7 @@ rlock_protocol::status lock_client_cache::revoke_handler(
     lock->setClientLockState(ClientLockState::RELEASING);
     ulock.unlock();
     int r;
-    ret = cl->call(lock_protocol::release, cl->id(), lid, r);
+    ret = cl->call(lock_protocol::release, lid, id, r);
     ulock.lock();
     if (ret != lock_protocol::OK) {
       return lock_protocol::RPCERR;

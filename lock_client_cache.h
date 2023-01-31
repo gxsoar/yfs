@@ -42,9 +42,9 @@ public:
   bool operator==(const Lock &rhs) { return rhs.lid_ == lid_; }
 
 public:
-  std::condition_variable retry_cv_;
-  std::condition_variable wait_cv_;
-  std::condition_variable release_cv_;
+  // std::condition_variable retry_cv_;
+  // std::condition_variable wait_cv_;
+  // std::condition_variable release_cv_;
   bool revoked_{false};
   bool retry_{false};
 
@@ -71,6 +71,9 @@ class lock_client_cache : public lock_client {
 private:
   std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>> lock_table_;
   std::mutex mutex_;
+  std::condition_variable retry_cv_;
+  std::condition_variable wait_cv_;
+  std::condition_variable release_cv_;
 };
 
 #endif

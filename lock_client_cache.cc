@@ -45,29 +45,32 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
-            lock->retry_cv_.wait(ulock);
+            std::cout << "wait here\n";
+            retry_cv_.wait(ulock);
           }
-          break;
-        } else {
+        } else if (server_ret == lock_protocol::OK){
           lock->setClientLockState(ClientLockState::LOCKED);
           return lock_protocol::OK;
         }
+        break;
       }
       case ClientLockState::FREE: {
         lock->setClientLockState(ClientLockState::LOCKED);
         return lock_protocol::OK;
+        break;
       }
       case ClientLockState::LOCKED: {
-        lock->wait_cv_.wait(ulock);
+        wait_cv_.wait(ulock);
         break;
       }
       case ClientLockState::ACQUIRING: {
         if (!lock->retry_) {
           // 如果没有收到retry就将其挂起
-          lock->retry_cv_.wait(ulock);
+          retry_cv_.wait(ulock);
         } else {
           // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达, 已经收到了retry就向 server请求锁
           ulock.unlock();
+          lock->retry_ = false;
           int r;
           ret = cl->call(lock_protocol::acquire, lid, id, r);
           ulock.lock();
@@ -76,14 +79,14 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
             return ret;
           } else if (ret == lock_protocol::RETRY) {
             if (!lock->retry_) {
-              lock->release_cv_.wait(ulock);
+              release_cv_.wait(ulock);
             }
           }
         }
         break;
       }
       case ClientLockState::RELEASING: {
-        lock->release_cv_.wait(ulock);
+        release_cv_.wait(ulock);
         break;
       }
     }
@@ -107,11 +110,11 @@ lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
     ret = cl->call(lock_protocol::release, lid, id, r);
     ulock.lock();
     lock->setClientLockState(ClientLockState::NONE);
-    lock->release_cv_.notify_all();
+    release_cv_.notify_all();
     return ret;
   }
   lock->setClientLockState(ClientLockState::FREE);
-  lock->wait_cv_.notify_one();
+  wait_cv_.notify_one();
   return ret;
 }
 
@@ -133,7 +136,7 @@ rlock_protocol::status lock_client_cache::revoke_handler(
       return lock_protocol::RPCERR;
     }
     lock->setClientLockState(ClientLockState::NONE);
-    lock->release_cv_.notify_all();
+    release_cv_.notify_all();
   }
   else {
     lock->revoked_ = true; 
@@ -149,8 +152,9 @@ rlock_protocol::status lock_client_cache::retry_handler(
     return rlock_protocol::RPCERR;
   }
   auto lock = lock_table_[lid];
-  lock->setClientLockState(ClientLockState::FREE);
+  // lock->setClientLockState(ClientLockState::FREE);
   lock->retry_ = true;
-  lock->retry_cv_.notify_all();
+  // lock->retry_cv_.notify_all();
+  retry_cv_.notify_one();
   return ret;
 }

@@ -14,8 +14,7 @@
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
   ec = new extent_client(extent_dst);
-  // lc_ = new lock_client(lock_dst);
-  lcc_ = new lock_client_cache(lock_dst);
+  lc_ = new lock_client_cache(lock_dst);
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -96,7 +95,7 @@ yfs_client::inum yfs_client::createDirInum() {
 }
 
 int yfs_client::create(const inum parent, const std::string &child_name, inum &child) {
-  lock_guard lock(lcc_, parent);
+  lock_guard lock(lc_, parent);
   std::string parent_content;
   std::vector<dirent> dirs;
   readdir(parent, dirs);
@@ -146,7 +145,7 @@ bool yfs_client::lookup(inum parent, const std::string &child_name, inum &child_
 }
 
 int yfs_client::setattr(inum inum, struct stat *attr) {
-  lock_guard lock(lcc_, inum);
+  lock_guard lock(lc_, inum);
   std::string buf;
   auto ret = ec->get(inum, buf);
   if (ret != extent_protocol::OK) {
@@ -181,7 +180,7 @@ int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::strin
 }
 
 int yfs_client::write(const inum inum, const size_t &size, const off_t &off, const std::string &buf) {
-  lock_guard lock(lcc_, inum);
+  lock_guard lock(lc_, inum);
   std::string str;
   auto ret = ec->get(inum, str);
   if (ret != extent_protocol::OK) {
@@ -201,7 +200,7 @@ int yfs_client::write(const inum inum, const size_t &size, const off_t &off, con
 }
 
 int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::string &child_name) {
-  lock_guard lock(lcc_, parent_inum);
+  lock_guard lock(lc_, parent_inum);
   if (lookup(parent_inum, child_name, child_inum)) {
     return yfs_client::EXIST;
   }
@@ -216,7 +215,7 @@ int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::strin
 }
 
 int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
-  lock_guard lock(lcc_, parent_inum);
+  lock_guard lock(lc_, parent_inum);
   yfs_client::inum file_inum;
   if (!lookup(parent_inum, file_name, file_inum)) {
     return yfs_client::NOENT;

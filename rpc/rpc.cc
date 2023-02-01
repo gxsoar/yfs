@@ -653,12 +653,13 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
       return NEW;
   }
   auto &clt_window = reply_window_[clt_nonce];
+  if (clt_window.front().xid > xid) {
+      return FORGOTTEN;
+  }
   for (auto ite = clt_window.begin(); ite != clt_window.end(); ) {
-    if (ite->xid < xid_rep) {
-      ite->cb_present = false;
+    if (ite->xid < xid_rep && ite->cb_present) {
       free(ite->buf);
       ite = clt_window.erase(ite);
-      continue;
     } 
     if (ite->xid == xid) {
       if (ite->cb_present) {
@@ -667,9 +668,6 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
         return DONE;
       }
       return INPROGRESS;
-    }
-    if (clt_window.front().xid > xid) {
-      return FORGOTTEN;
     }
     ++ite;
   }

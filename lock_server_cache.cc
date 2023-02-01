@@ -42,17 +42,15 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
       // 说明此时正在发送retry给该客户端，将其从集合中移除
       lock->deleteWaitClient(id);
       lock->setLockOwner(id);
-    } else {
-      if (lock->waitClientSetEmpty()) {
-        lock->setServerLockState(ServerLockState::LOCKED);
-        lock->setLockOwner(id);
-        ret = lock_protocol::OK;
-      } else {
+      if (!lock->waitClientSetEmpty()) {
         lock->setServerLockState(ServerLockState::LOCK_AND_WAIT);
-        lock->addWaitClient(id);
         revoke = true;
-        ret = lock_protocol::RETRY;
+      } else {
+        lock->setServerLockState(ServerLockState::LOCKED);
       }
+    } else {
+      lock->addWaitClient(id);
+      ret = lock_protocol::RETRY;
     }
   }
   if (revoke) {

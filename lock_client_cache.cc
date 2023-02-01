@@ -45,7 +45,6 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
-            std::cout << "wait here\n";
             retry_cv_.wait(ulock);
           }
         } else if (server_ret == lock_protocol::OK){
@@ -66,7 +65,8 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
       case ClientLockState::ACQUIRING: {
         if (!lock->retry_) {
           // 如果没有收到retry就将其挂起
-          retry_cv_.wait(ulock);
+          // retry_cv_.wait(ulock);
+          wait_cv_.wait(ulock);
         } else {
           // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达, 已经收到了retry就向 server请求锁
           ulock.unlock();
@@ -79,7 +79,8 @@ lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
             return ret;
           } else if (ret == lock_protocol::RETRY) {
             if (!lock->retry_) {
-              release_cv_.wait(ulock);
+              // release_cv_.wait(ulock);
+              retry_cv_.wait(ulock);
             }
           }
         }

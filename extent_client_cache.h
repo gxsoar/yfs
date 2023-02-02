@@ -17,22 +17,32 @@ public:
 
   auto count(extent_protocol::extentid_t id) { return extent_id_cache_.count(id); }
 
-  void insert(extent_protocol::extentid_t id, const std::string &str) {
+  extent_protocol::status insert(extent_protocol::extentid_t id, const std::string &str) {
     extent_id_cache_.insert(id);
     content_[id] = str;
+    return extent_protocol::OK;
   }
 
-  void insert(extent_protocol::extentid_t id, const extent_protocol::attr &attr) {
+  extent_protocol::status insert(extent_protocol::extentid_t id, const extent_protocol::attr &attr) {
     extent_id_cache_.insert(id);
     attr_[id] = attr;
+    return extent_protocol::OK;
   }
 
-  void get(extent_protocol::extentid_t id, std::string &buf) {
+  extent_protocol::status get(extent_protocol::extentid_t id, std::string &buf) {
+    if (content_.count(id) == 0U) {
+      return extent_protocol::NOENT;
+    }
     buf = content_[id];
+    return extent_protocol::OK;
   }
 
-  void get(extent_protocol::extentid_t id, extent_protocol::attr &attr) {
+  extent_protocol::status get(extent_protocol::extentid_t id, extent_protocol::attr &attr) {
+    if (attr_.count(id) == 0U) {
+      return extent_protocol::NOENT;
+    }
     attr = attr_[id];
+    return extent_protocol::OK;
   }
 
 private:

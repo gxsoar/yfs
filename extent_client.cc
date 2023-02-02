@@ -29,6 +29,7 @@ extent_protocol::status extent_client::get(extent_protocol::extentid_t eid,
     return ret;
   }
   ret = cl->call(extent_protocol::get, eid, buf);
+  cache_->insert(eid, buf);
   return ret;
 }
 
@@ -40,6 +41,7 @@ extent_protocol::status extent_client::getattr(extent_protocol::extentid_t eid,
     return ret;
   }
   ret = cl->call(extent_protocol::getattr, eid, attr);
+  cache_->insert(eid, attr);
   return ret;
 }
 
@@ -47,9 +49,11 @@ extent_protocol::status extent_client::put(extent_protocol::extentid_t eid,
                                            std::string buf) {
   extent_protocol::status ret = extent_protocol::OK;
   int r;
-  ret = cl->call(extent_protocol::put, eid, buf, r);
+  cache_->insert(eid, buf);
+  // ret = cl->call(extent_protocol::put, eid, buf, r);
   return ret;
 }
+
 extent_protocol::status extent_client::remove(extent_protocol::extentid_t eid) {
   extent_protocol::status ret = extent_protocol::OK;
   int r;

@@ -12,10 +12,16 @@ class ExtentClientCache {
 public:
 
   ExtentClientCache() {
-    id_ = cache_count_++;
+    // id_ = cache_count_++;
   }
 
   auto count(extent_protocol::extentid_t id) { return extent_id_cache_.count(id); }
+  
+  void erase(extent_protocol::extentid_t id) {
+    if (extent_id_cache_.count(id)) extent_id_cache_.erase(id);
+    if (content_.count(id)) content_.erase(id);
+    if (attr_.count(id)) attr_.erase(id);
+  }
 
   extent_protocol::status insert(extent_protocol::extentid_t id, const std::string &str) {
     extent_id_cache_.insert(id);
@@ -49,10 +55,10 @@ private:
   std::unordered_set<extent_protocol::extentid_t> extent_id_cache_;
   std::unordered_map<extent_protocol::extentid_t, std::string> content_;
   std::unordered_map<extent_protocol::extentid_t, extent_protocol::attr> attr_;
-  int id_;
+  // int id_;
   static int cache_count_;
 };
 
-int ExtentClientCache::cache_count_ = 0;
+// int ExtentClientCache::cache_count_ = 0;
 
-#endif extent_client_cache
+#endif

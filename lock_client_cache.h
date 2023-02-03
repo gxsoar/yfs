@@ -16,6 +16,7 @@
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_client.h"
+#include "extent_client_cache.h"
 #include "lang/verify.h"
 
 // Classes that inherit lock_release_user can override dorelease so that 
@@ -25,6 +26,12 @@ class lock_release_user {
  public:
   virtual void dorelease(lock_protocol::lockid_t) = 0;
   virtual ~lock_release_user() {};
+};
+
+class lock_release : public lock_release_user {
+public:
+  void dorelease(lock_protocol::lockid_t);
+  virtual ~lock_release() {};
 };
 
 enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };

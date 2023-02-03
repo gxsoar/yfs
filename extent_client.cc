@@ -15,7 +15,6 @@ extent_client::extent_client(std::string dst) {
   sockaddr_in dstsock;
   make_sockaddr(dst.c_str(), &dstsock);
   cl = new rpcc(dstsock);
-  cache_ = std::make_unique<ExtentClientCache>();
   if (cl->bind() != 0) {
     printf("extent_client: bind failed\n");
   }
@@ -24,24 +23,14 @@ extent_client::extent_client(std::string dst) {
 extent_protocol::status extent_client::get(extent_protocol::extentid_t eid,
                                            std::string &buf) {
   extent_protocol::status ret = extent_protocol::OK;
-  if (cache_->count(eid)) {
-    ret = cache_->get(eid, buf);
-    return ret;
-  }
   ret = cl->call(extent_protocol::get, eid, buf);
-  cache_->insert(eid, buf);
   return ret;
 }
 
 extent_protocol::status extent_client::getattr(extent_protocol::extentid_t eid,
                                                extent_protocol::attr &attr) {
   extent_protocol::status ret = extent_protocol::OK;
-  if (cache_->count(eid)) {
-    ret = cache_->get(eid, attr);
-    return ret;
-  }
   ret = cl->call(extent_protocol::getattr, eid, attr);
-  cache_->insert(eid, attr);
   return ret;
 }
 
@@ -49,8 +38,7 @@ extent_protocol::status extent_client::put(extent_protocol::extentid_t eid,
                                            std::string buf) {
   extent_protocol::status ret = extent_protocol::OK;
   int r;
-  cache_->insert(eid, buf);
-  // ret = cl->call(extent_protocol::put, eid, buf, r);
+  ret = cl->call(extent_protocol::put, eid, buf, r);
   return ret;
 }
 

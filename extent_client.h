@@ -10,7 +10,7 @@
 #include "rpc.h"
 
 class extent_client {
- private:
+protected:
   rpcc *cl;
 
  public:

@@ -1,5 +1,5 @@
-#ifndef extent_client_cache
-#define extent_client_cache
+#ifndef extent_client_cache_h
+#define extent_client_cache_h
 
 #include <unordered_set>
 #include <string>
@@ -8,57 +8,36 @@
 
 #include "extent_protocol.h"
 
-class ExtentClientCache {
+
+class extent_client_cache : public extent_client {
 public:
+  // DIRTY put操作，当cache的内容和server的内容不一致
+  // remove 在cache中已经被移除
+  // none remove 之后在cache_中的内容为空
+  // CONSISTENT，cache的内容和server中的内容一致
+  enum class ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
 
-  ExtentClientCache() {
-    // id_ = cache_count_++;
-  }
+  extent_client_cache(); 
 
-  auto count(extent_protocol::extentid_t id) { return extent_id_cache_.count(id); }
-  
-  void erase(extent_protocol::extentid_t id) {
-    if (extent_id_cache_.count(id)) extent_id_cache_.erase(id);
-    if (content_.count(id)) content_.erase(id);
-    if (attr_.count(id)) attr_.erase(id);
-  }
+  extent_protocol::status get(extent_protocol::extentid_t eid, std::string &buf);
 
-  extent_protocol::status insert(extent_protocol::extentid_t id, const std::string &str) {
-    extent_id_cache_.insert(id);
-    content_[id] = str;
-    return extent_protocol::OK;
-  }
+  extent_protocol::status getattr(extent_protocol::extentid_t eid, extent_protocol::attr &a);
 
-  extent_protocol::status insert(extent_protocol::extentid_t id, const extent_protocol::attr &attr) {
-    extent_id_cache_.insert(id);
-    attr_[id] = attr;
-    return extent_protocol::OK;
-  }
+  extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
 
-  extent_protocol::status get(extent_protocol::extentid_t id, std::string &buf) {
-    if (content_.count(id) == 0U) {
-      return extent_protocol::NOENT;
-    }
-    buf = content_[id];
-    return extent_protocol::OK;
-  }
+  extent_protocol::status remove(extent_protocol::extentid_t eid);
 
-  extent_protocol::status get(extent_protocol::extentid_t id, extent_protocol::attr &attr) {
-    if (attr_.count(id) == 0U) {
-      return extent_protocol::NOENT;
-    }
-    attr = attr_[id];
-    return extent_protocol::OK;
-  }
 
 private:
-  std::unordered_set<extent_protocol::extentid_t> extent_id_cache_;
-  std::unordered_map<extent_protocol::extentid_t, std::string> content_;
-  std::unordered_map<extent_protocol::extentid_t, extent_protocol::attr> attr_;
-  // int id_;
-  static int cache_count_;
+  struct eid_content {
+    extent_protocol::extentid_t id_;
+    std::string buf_;
+    extent_protocol::attr attr_;
+    ExtentState state_;
+    eid_content(extent_protocol::extentid_t id) : id_(id) {}
+  };
+  std::unordered_map<extent_protocol::extentid_t, eid_content> extent_cache_;
+  std::mutex mutex_;
 };
-
-// int ExtentClientCache::cache_count_ = 0;
 
 #endif

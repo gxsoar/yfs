@@ -50,7 +50,7 @@ extent_protocol::status extent_client::put(extent_protocol::extentid_t eid,
   extent_protocol::status ret = extent_protocol::OK;
   int r;
   cache_->insert(eid, buf);
-  // ret = cl->call(extent_protocol::put, eid, buf, r);
+  ret = cl->call(extent_protocol::put, eid, buf, r);
   return ret;
 }
 

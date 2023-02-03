@@ -7,13 +7,12 @@
 #include <random>
 #include <vector>
 
-#include "extent_client.h"
-// #include "lock_client.h"
 #include "lock_client_cache.h"
+#include "extent_client_cache.h"
 
 class yfs_client {
-  extent_client *ec;
-  lock_client *lc_;
+  std::unique_ptr<lock_client> lc_;
+  std::unique_ptr<extent_client> ec_;
   // lock_client_cache *lcc_;
  public:
   typedef unsigned long long inum;
@@ -65,14 +64,14 @@ class yfs_client {
 
 class lock_guard {
 public:
-  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
+  lock_guard(std::unique_ptr<lock_client> &&lc, lock_protocol::lockid_t lid) : lc_(std::move(lc)), lid_(lid) {
     lc_->acquire(lid_);
   }
   ~lock_guard() {
     lc_->release(lid_);
   }
 private:
-  lock_client *lc_;
+  std::unique_ptr<lock_client> lc_;
   lock_protocol::lockid_t lid_;
 };
 

@@ -30,8 +30,11 @@ class lock_release_user {
 
 class lock_release : public lock_release_user {
 public:
+  lock_release(std::unique_ptr<extent_client_cache> &&ec) : ec_(std::move(ec)) {}
   void dorelease(lock_protocol::lockid_t);
   virtual ~lock_release() {};
+private:
+  std::unique_ptr<extent_client_cache> ec_;
 };
 
 enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };

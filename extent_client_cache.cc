@@ -13,6 +13,7 @@ extent_protocol::status extent_client_cache::get(extent_protocol::extentid_t eid
     return ret;
   }
   buf = extent_cache_[eid].buf_;
+  std::cout << "extent_client_cache::get " << eid << " buf " << buf << std::endl;
   return ret;
 }
 
@@ -36,6 +37,7 @@ extent_protocol::status extent_client_cache::put(extent_protocol::extentid_t eid
   int ret = extent_protocol::OK;
   extent_cache_[eid].buf_ = buf;
   extent_cache_[eid].state_ = ExtentState::DIRTY;
+  std::cout << "extent_client_cache::put " << eid << " buf " << buf << std::endl;
   return ret;
 }
 

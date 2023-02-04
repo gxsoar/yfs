@@ -38,6 +38,8 @@ private:
     extent_protocol::attr attr_;
     ExtentState state_;
     eid_content(extent_protocol::extentid_t id, ExtentState state = ExtentState::NONE) : id_(id), state_(state) {}
+    eid_content(extent_protocol::extentid_t id) : id_(id) {};
+    eid_content() = default;
   };
   std::unordered_map<extent_protocol::extentid_t, eid_content> extent_cache_;
   std::mutex mutex_;

@@ -23,6 +23,7 @@ protected:
 				  extent_protocol::attr &a);
   virtual extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
   virtual extent_protocol::status remove(extent_protocol::extentid_t eid);
+  // virtual extent_protocol::status flush(extent_protocol::extentid_t eid);
 };
 
 #endif 

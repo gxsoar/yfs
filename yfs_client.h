@@ -13,8 +13,12 @@
 #include "extent_client_cache.h"
 
 class yfs_client {
-  std::unique_ptr<lock_client> lc_;
-  std::unique_ptr<extent_client> ec_;
+  // std::shared_ptr<lock_client> lc_;
+  // std::shared_ptr<extent_client_cache> ec_;
+  // std::shared_ptr<lock_release_user> lu_;
+  lock_client *lc_;
+  extent_client *ec_;
+  lock_release_user *lu_;
   // lock_client_cache *lcc_;
  public:
   typedef unsigned long long inum;
@@ -66,14 +70,15 @@ class yfs_client {
 
 class lock_guard {
 public:
-  lock_guard(std::unique_ptr<lock_client> &&lc, lock_protocol::lockid_t lid) : lc_(std::move(lc)), lid_(lid) {
+  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
     lc_->acquire(lid_);
   }
   ~lock_guard() {
     lc_->release(lid_);
   }
 private:
-  std::unique_ptr<lock_client> lc_;
+  // std::shared_ptr<lock_client> lc_;
+  lock_client *lc_;
   lock_protocol::lockid_t lid_;
 };
 

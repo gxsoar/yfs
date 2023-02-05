@@ -26,6 +26,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
 }
 
 void lock_release::dorelease(lock_protocol::lockid_t id) {
+  std::cout << "lock_release::dorelease\n";
   ec_->flush(id);
 }
 
@@ -137,6 +138,7 @@ rlock_protocol::status lock_client_cache::revoke_handler(
     ulock.unlock();
     int r;
     lu->dorelease(lid);
+    std::cout << "revoke lu->dorelease\n";
     ret = cl->call(lock_protocol::release, lid, id, r);
     ulock.lock();
     if (ret != lock_protocol::OK) {

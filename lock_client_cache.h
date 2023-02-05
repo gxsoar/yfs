@@ -30,11 +30,12 @@ class lock_release_user {
 
 class lock_release : public lock_release_user {
 public:
-  lock_release(std::unique_ptr<extent_client_cache> &&ec) : ec_(std::move(ec)) {}
+  lock_release(extent_client_cache *ec) : ec_(ec) {}
   void dorelease(lock_protocol::lockid_t);
   virtual ~lock_release() {};
 private:
-  std::unique_ptr<extent_client_cache> ec_;
+  // std::shared_ptr<extent_client_cache> ec_;
+  extent_client_cache *ec_;
 };
 
 enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
@@ -66,11 +67,12 @@ private:
 class lock_client_cache : public lock_client {
  private:
   class lock_release_user *lu;
+  // std::shared_ptr<class lock_release_user> lu;
   int rlock_port;
   std::string hostname;
   std::string id;
  public:
-  lock_client_cache(std::string xdst, class lock_release_user *l = 0);
+  lock_client_cache(std::string xdst, class lock_release_user *l = nullptr);
   virtual ~lock_client_cache() {};
   lock_protocol::status acquire(lock_protocol::lockid_t);
   lock_protocol::status release(lock_protocol::lockid_t);

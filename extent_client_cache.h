@@ -16,9 +16,9 @@ public:
   // remove 在cache中已经被移除
   // none remove 之后在cache_中的内容为空
   // CONSISTENT，cache的内容和server中的内容一致
-  enum class ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
+  enum  ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
 
-  extent_client_cache(std::string dst) : extent_client(dst) {}
+  extent_client_cache(std::string dst);
 
   extent_protocol::status get(extent_protocol::extentid_t eid, std::string &buf);
 

@@ -286,12 +286,10 @@ void fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
   e.generation = 0;
-  bool found = false;
 
   // You fill this in for Lab 2
   yfs_client::inum inum;
-  found = yfs->lookup(parent, name, inum);
-  if (found) {
+  if (yfs->lookup(parent, name, inum) == yfs_client::OK) {
     struct stat st;
     e.ino = inum;
     getattr(inum, st);

@@ -206,7 +206,7 @@ int yfs_client::write(const inum inum, const size_t &size, const off_t &off, con
 
 int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::string &child_name) {
   lock_guard lock(lc_, parent_inum);
-  if (lookup(parent_inum, child_name, child_inum)) {
+  if (lookup(parent_inum, child_name, child_inum) == yfs_client::OK) {
     return yfs_client::EXIST;
   }
   child_inum = createDirInum();
@@ -227,9 +227,6 @@ int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::strin
 int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
   lock_guard lock(lc_, parent_inum);
   yfs_client::inum file_inum;
-  if (!lookup(parent_inum, file_name, file_inum)) {
-    return yfs_client::NOENT;
-  }
   std::vector<dirent> dirs;
   if (readdir(parent_inum, dirs) != extent_protocol::OK) {
     return yfs_client::IOERR;

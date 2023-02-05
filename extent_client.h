@@ -8,6 +8,7 @@
 #include <memory>
 #include "extent_protocol.h"
 #include "rpc.h"
+// #include "extent_client_cache.h"
 
 class extent_client {
 protected:

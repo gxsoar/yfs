@@ -7,6 +7,8 @@
 #include <random>
 #include <vector>
 
+#include "extent_client.h"
+#include "lock_client.h"
 #include "lock_client_cache.h"
 #include "extent_client_cache.h"
 
@@ -51,7 +53,7 @@ class yfs_client {
   // lab2 part1
   int create(const inum parent, const std::string &name, inum &child);
   int readdir(inum inum, std::vector<dirent> &);
-  bool lookup(const inum parent, const std::string &child_name,
+  int lookup(const inum parent, const std::string &child_name,
               inum &child_inum);
   // lab2 part2
   int setattr(const inum, struct stat *attr);

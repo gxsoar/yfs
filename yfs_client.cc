@@ -125,7 +125,6 @@ int yfs_client::create(const inum parent, const std::string &child_name, inum &c
 
 int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   lock_guard lg(lc_, parent);
-  std::cout << "ec_ address : " << &ec_ << std::endl;
   std::string buf;
   auto ret = ec_->get(parent, buf);
   if (ret != extent_protocol::OK) {

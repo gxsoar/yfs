@@ -26,7 +26,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
 }
 
 void lock_release::dorelease(lock_protocol::lockid_t id) {
-  std::cout << "lock_release::dorelease\n";
   ec_->flush(id);
 }
 

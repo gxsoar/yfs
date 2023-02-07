@@ -125,11 +125,9 @@ int yfs_client::create(const inum parent, const std::string &child_name, inum &c
 
 int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   lock_guard lg(lc_, parent);
-  std::cout << "ec_ address : " << &ec_ << std::endl;
   std::string buf;
   auto ret = ec_->get(parent, buf);
   if (ret != extent_protocol::OK) {
-    std::cout << "readdir ec_->get ioerr\n";
     return yfs_client::IOERR;
   }
   std::stringstream ss(buf);
@@ -242,7 +240,6 @@ int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
   yfs_client::inum file_inum;
   std::vector<dirent> dirs;
   if (readdir(parent_inum, dirs) != extent_protocol::OK) {
-    std::cout << "unlink readdir ioerr\n";
     return yfs_client::IOERR;
   }
   lock_guard lg(lc_, parent_inum);
@@ -261,7 +258,6 @@ int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
   }
   ec_->put(parent_inum, buf);
   if (ec_->remove(file_inum) != extent_protocol::OK) {
-    std::cout << "ec_->remove(file_inum) IOERR\n";
     return yfs_client::IOERR;
   }
   return yfs_client::OK;

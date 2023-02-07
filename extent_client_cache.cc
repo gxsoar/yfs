@@ -25,21 +25,16 @@ extent_protocol::status extent_client_cache::get(extent_protocol::extentid_t eid
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = extent_protocol::OK;
  
-  if (extent_cache_.count(eid) == 0U || extent_cache_[eid].state_ == ExtentState::DIRTY) {
-    std::cout << "extent_cache.count(eid)\n";
+  if (extent_cache_.count(eid) == 0U || extent_cache_[eid].state_ == ExtentState::NONE) {
     ulock.unlock();
     ret = cl->call(extent_protocol::get, eid, buf);
     extent_cache_[eid].buf_ = buf;
     extent_cache_[eid].state_ = ExtentState::CONSISTENT;
-  } else if (extent_cache_[eid].state_ == ExtentState::REMOVE) {
-    ret = extent_protocol::NOENT;
-  } else {
+    std::cout << "extent_client_cache::get " << eid << " buf " << extent_cache_[eid].buf_ << " state " << extent_cache_[eid].state_ << "\n";
+  } else if (extent_cache_[eid].state_ == ExtentState::CONSISTENT || extent_cache_[eid].state_ == ExtentState::DIRTY){
     buf = extent_cache_[eid].buf_;
   }
-  std::cout << "extent_client_cache::get " << eid << " buf " << extent_cache_[eid].buf_ << std::endl;
-  std::cout << "extent_client_cache " << eid << " eid state " << extent_cache_[eid].state_ << "\n";
   extent_cache_[eid].attr_.atime = time(nullptr);
-  
   return ret;
 }
 
@@ -50,11 +45,11 @@ extent_protocol::status extent_client_cache::getattr(extent_protocol::extentid_t
   if (extent_cache_.count(eid) == 0U) {
     ulock.unlock();
     ret = cl->call(extent_protocol::getattr, eid, a);
+    ulock.lock();
     extent_cache_[eid].attr_ = a;
-    // extent_cache_[eid].state_ = ExtentState::CONSISTENT;
-    return ret;
+  } else {
+    a = extent_cache_[eid].attr_;
   }
-  a = extent_cache_[eid].attr_;
   return ret;
 }
 
@@ -73,15 +68,19 @@ extent_protocol::status extent_client_cache::flush(extent_protocol::extentid_t e
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = extent_protocol::OK;
   int r;
-  ulock.unlock();
-  if (extent_cache_[eid].state_ == ExtentState::DIRTY) {
-    ret = cl->call(extent_protocol::put, eid, extent_cache_[eid].buf_, r);
-    extent_cache_[eid].state_ = ExtentState::CONSISTENT;
-  } else if (extent_cache_[eid].state_ == ExtentState::REMOVE) {
+  std::cout << "flush eid " << eid << " state " << extent_cache_[eid].state_ << "\n"; 
+  if (extent_cache_[eid].state_ == ExtentState::REMOVE || extent_cache_.count(eid) == 0U) {
+    ulock.unlock();
     ret = cl->call(extent_protocol::remove, eid, r);
-    extent_cache_[eid].state_ = ExtentState::REMOVE;
+    ulock.lock();
+    if (extent_cache_.count(eid) != 0U) extent_cache_.erase(eid);
+  } else if (extent_cache_[eid].state_ == ExtentState::DIRTY) {
+    ulock.unlock();
+    ret = cl->call(extent_protocol::put, eid, extent_cache_[eid].buf_, r);
+    ulock.lock();
+    extent_cache_.erase(eid);
+  } else {
+    extent_cache_.erase(eid);
   }
-  std::cout << "extent_client_cache::flush\n";
-  extent_cache_.erase(eid);
   return ret;
 }

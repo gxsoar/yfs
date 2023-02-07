@@ -14,7 +14,7 @@ class extent_client_cache : public extent_client {
 public:
   // DIRTY put操作，当cache的内容和server的内容不一致
   // remove 在cache中已经被移除
-  // none remove 之后在cache_中的内容为空
+  // none cache中只有其属性没有其任何内容
   // CONSISTENT，cache的内容和server中的内容一致
   enum  ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
 

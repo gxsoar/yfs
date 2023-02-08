@@ -12,11 +12,11 @@
 
 class extent_client_cache : public extent_client {
 public:
-  // DIRTY put操作，当cache的内容和server的内容不一致
-  // remove 在cache中已经被移除
-  // none cache中只有其属性没有其任何内容
-  // CONSISTENT，cache的内容和server中的内容一致
-  enum  ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
+  // DIRTY  cache的内容和server内容不一致
+  // REMOVE 表明该内容需要被删除 
+  // NONE   cache只有其属性没有内容 
+  // CONSISTENT cache的内容和server中的内容一致
+  enum ExtentState { DIRTY, REMOVE, NONE, CONSISTENT };
 
   extent_client_cache(std::string dst);
 

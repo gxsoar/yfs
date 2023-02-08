@@ -23,6 +23,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
   content_map[id].att_.ctime = time(nullptr);
   content_map[id].att_.mtime = time(nullptr);
   content_map[id].content_ = buf;
+  std::cout << "server put id " << id << " buf " << buf << "\n";
   return extent_protocol::OK;
 }
 
@@ -35,6 +36,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
   }
   content_map[id].att_.atime = time(nullptr);
   buf = content_map[id].content_;
+  std::cout << "server get id " << id << " buf " << buf << "\n";
   return extent_protocol::OK;
 }
 
@@ -46,7 +48,7 @@ int extent_server::getattr(extent_protocol::extentid_t id,
   // unmount) if getattr fails.
   std::scoped_lock<std::mutex> lock(mutex_);
   if (content_map.count(id) == 0U) {
-    std::cout << "getattr content_map.cout(id) ioerr id = " << id << "\n";
+    std::cout << "server getattr content_map.cout(id) ioerr id = " << id << "\n";
     return extent_protocol::IOERR;
   }
   a.size = content_map[id].att_.size;

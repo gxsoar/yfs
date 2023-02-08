@@ -47,6 +47,7 @@ int yfs_client::getfile(inum inum, fileinfo &fin) {
   int r = OK;
 
   printf("getfile %016llx\n", inum);
+  lock_guard lg(lc_, inum);
   extent_protocol::attr a;
   if (ec_->getattr(inum, a) != extent_protocol::OK) {
     r = IOERR;
@@ -68,6 +69,7 @@ int yfs_client::getdir(inum inum, dirinfo &din) {
   int r = OK;
 
   printf("getdir %016llx\n", inum);
+  lock_guard lg(lc_, inum);
   extent_protocol::attr a;
   if (ec_->getattr(inum, a) != extent_protocol::OK) {
     r = IOERR;
@@ -116,6 +118,7 @@ int yfs_client::create(const inum parent, const std::string &child_name, inum &c
   ec_->put(child, "");
   std::string buf;
   if (ec_->get(parent, buf) != extent_protocol::OK) {
+    std::cout << "yfs_client::create parent " << parent << " ioerr\n";
     return yfs_client::IOERR;
   } 
   buf += (" " + child_name + "&" + filename(child));
@@ -128,6 +131,7 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   std::string buf;
   auto ret = ec_->get(parent, buf);
   if (ret != extent_protocol::OK) {
+    std::cout << "readdir parent " << parent << " ioerr\n";
     return yfs_client::IOERR;
   }
   std::stringstream ss(buf);
@@ -164,6 +168,7 @@ int yfs_client::setattr(inum inum, struct stat *attr) {
   std::string buf;
   auto ret = ec_->get(inum, buf);
   if (ret != extent_protocol::OK) {
+    std::cout << "yfs_client:: setattr " << inum << " ioerr\n";
     return yfs_client::IOERR;
   }
   size_t size = attr->st_size;
@@ -219,18 +224,21 @@ int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::strin
   if (lookup(parent_inum, child_name, child_inum) == yfs_client::OK) {
     return yfs_client::EXIST;
   }
-  lock_guard lg(lc_, parent_inum);
+  lock_guard lock_parent(lc_, parent_inum);
   child_inum = createDirInum();
+  // lock_guard lock_child(lc_, child_inum);
   if (ec_->put(child_inum, "") != extent_protocol::OK) {
+    std::cout << "yfs_client::mkdir ec_->put(child_inum) " << child_inum << " ioerr\n";
     return yfs_client::IOERR;
   }
   std::string buf;
   if (ec_->get(parent_inum, buf) != extent_protocol::OK) {
+    std::cout << "yfs_client::mkdir ec_->get(parent_inum, buf) " << parent_inum << " ioerr\n";
     return yfs_client::IOERR;
   }
   buf +=(" " + child_name + "&" + filename(child_inum));
   if (ec_->put(parent_inum, buf) != extent_protocol::OK) {
-    std::cout << "mkdir ec_->put(parent_inum, buf) ioerr\n";
+    std::cout << "yfs_client::mkdir ec_->put(parent_inum, buf) ioerr\n";
     return yfs_client::IOERR;
   }
   return yfs_client::OK;

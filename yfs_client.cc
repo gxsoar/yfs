@@ -18,9 +18,6 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
   ec_ = tmp;
   lu_ = new lock_release(tmp);
   lc_ = new lock_client_cache(lock_dst, lu_);
-  // ec_ = std::make_shared<extent_client_cache>(extent_dst);
-  // lu_ = std::make_shared<lock_release>(ec_);
-  // lc_ = std::make_shared<lock_client_cache>(lock_dst, lu_);
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -84,7 +81,8 @@ release:
 }
 
 yfs_client::inum yfs_client::createFileInum() {
-  std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
+  std::mt19937 generator(
+      std::chrono::system_clock::now().time_since_epoch().count());
   auto inum = generator();
   inum |= 0x80000000;
   return inum;
@@ -93,8 +91,9 @@ yfs_client::inum yfs_client::createFileInum() {
 yfs_client::inum yfs_client::createDirInum() {
   yfs_client::inum inum;
   // 随机产生inum号，同时确保目录号不能等于0x00000000000000001
-  while(true) {
-    std::mt19937 generator(std::chrono::system_clock::now().time_since_epoch().count());
+  while (true) {
+    std::mt19937 generator(
+        std::chrono::system_clock::now().time_since_epoch().count());
     inum = generator();
     inum &= ~(0x80000000);
     if (inum != 1) break;
@@ -102,9 +101,8 @@ yfs_client::inum yfs_client::createDirInum() {
   return inum;
 }
 
-int yfs_client::create(const inum parent, const std::string &child_name, inum &child) {
-  if (lc_ == nullptr) std::cout << "lc_ is nullptr\n";
-  std::cout << "create: " << parent << " " << " file name " << child_name << "\n";
+int yfs_client::create(const inum parent, const std::string &child_name,
+                       inum &child) {
   std::string parent_content;
   std::vector<dirent> dirs;
   readdir(parent, dirs);
@@ -112,15 +110,14 @@ int yfs_client::create(const inum parent, const std::string &child_name, inum &c
   for (auto dir : dirs) {
     if (isfile(dir.inum) && dir.name == child_name) {
       return yfs_client::EXIST;
-    } 
+    }
   }
   child = createFileInum();
   ec_->put(child, "");
   std::string buf;
   if (ec_->get(parent, buf) != extent_protocol::OK) {
-    std::cout << "yfs_client::create parent " << parent << " ioerr\n";
     return yfs_client::IOERR;
-  } 
+  }
   buf += (" " + child_name + "&" + filename(child));
   ec_->put(parent, buf);
   return yfs_client::OK;
@@ -131,26 +128,26 @@ int yfs_client::readdir(inum parent, std::vector<dirent> &dir_content) {
   std::string buf;
   auto ret = ec_->get(parent, buf);
   if (ret != extent_protocol::OK) {
-    std::cout << "readdir parent " << parent << " ioerr\n";
     return yfs_client::IOERR;
   }
   std::stringstream ss(buf);
   std::vector<std::string> tmp;
   std::string str;
-  while(ss >> str) tmp.push_back(str);
+  while (ss >> str) tmp.push_back(str);
   // 保证str的头部存储的是目录名
   int n = tmp.size();
-  for (int i = 0; i < n; ++ i) {
+  for (int i = 0; i < n; ++i) {
     auto npos = tmp[i].find_last_of('&');
     auto name = tmp[i].substr(0, npos);
     auto str_inum = tmp[i].substr(npos + 1, tmp[i].size() - npos - 1);
     auto inum = n2i(str_inum);
-    if (!name.empty())dir_content.push_back({name, inum});
+    if (!name.empty()) dir_content.push_back({name, inum});
   }
   return yfs_client::OK;
 }
 
-int yfs_client::lookup(inum parent, const std::string &child_name, inum &child_inum) {
+int yfs_client::lookup(inum parent, const std::string &child_name,
+                       inum &child_inum) {
   std::vector<dirent> dirs;
   readdir(parent, dirs);
   lock_guard lg(lc_, parent);
@@ -168,7 +165,6 @@ int yfs_client::setattr(inum inum, struct stat *attr) {
   std::string buf;
   auto ret = ec_->get(inum, buf);
   if (ret != extent_protocol::OK) {
-    std::cout << "yfs_client:: setattr " << inum << " ioerr\n";
     return yfs_client::IOERR;
   }
   size_t size = attr->st_size;
@@ -180,7 +176,8 @@ int yfs_client::setattr(inum inum, struct stat *attr) {
   return yfs_client::OK;
 }
 
-int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::string &buf) {
+int yfs_client::read(inum inum, const size_t &size, const off_t &off,
+                     std::string &buf) {
   lock_guard lg(lc_, inum);
   std::string str;
   auto ret = ec_->get(inum, str);
@@ -200,7 +197,8 @@ int yfs_client::read(inum inum, const size_t &size, const off_t &off, std::strin
   return yfs_client::OK;
 }
 
-int yfs_client::write(const inum inum, const size_t &size, const off_t &off, const std::string &buf) {
+int yfs_client::write(const inum inum, const size_t &size, const off_t &off,
+                      const std::string &buf) {
   lock_guard lg(lc_, inum);
   std::string str;
   auto ret = ec_->get(inum, str);
@@ -210,7 +208,7 @@ int yfs_client::write(const inum inum, const size_t &size, const off_t &off, con
   if (off + size > str.size()) {
     str.resize(off + size, '\0');
   }
-  for (size_t i = 0; i < size; ++ i) {
+  for (size_t i = 0; i < size; ++i) {
     str[off + i] = buf[i];
   }
   ret = ec_->put(inum, str);
@@ -220,25 +218,22 @@ int yfs_client::write(const inum inum, const size_t &size, const off_t &off, con
   return yfs_client::OK;
 }
 
-int yfs_client::mkdir(const inum parent_inum, inum &child_inum, const std::string &child_name) {
+int yfs_client::mkdir(const inum parent_inum, inum &child_inum,
+                      const std::string &child_name) {
   if (lookup(parent_inum, child_name, child_inum) == yfs_client::OK) {
     return yfs_client::EXIST;
   }
   lock_guard lock_parent(lc_, parent_inum);
   child_inum = createDirInum();
-  // lock_guard lock_child(lc_, child_inum);
   if (ec_->put(child_inum, "") != extent_protocol::OK) {
-    std::cout << "yfs_client::mkdir ec_->put(child_inum) " << child_inum << " ioerr\n";
     return yfs_client::IOERR;
   }
   std::string buf;
   if (ec_->get(parent_inum, buf) != extent_protocol::OK) {
-    std::cout << "yfs_client::mkdir ec_->get(parent_inum, buf) " << parent_inum << " ioerr\n";
     return yfs_client::IOERR;
   }
-  buf +=(" " + child_name + "&" + filename(child_inum));
+  buf += (" " + child_name + "&" + filename(child_inum));
   if (ec_->put(parent_inum, buf) != extent_protocol::OK) {
-    std::cout << "yfs_client::mkdir ec_->put(parent_inum, buf) ioerr\n";
     return yfs_client::IOERR;
   }
   return yfs_client::OK;
@@ -259,7 +254,7 @@ int yfs_client::unlink(const inum parent_inum, const std::string &file_name) {
       file_inum = content.inum;
       continue;
     }
-    buf +=(" " + content.name + "&" + filename(content.inum));
+    buf += (" " + content.name + "&" + filename(content.inum));
   }
   if (!flag) {
     return yfs_client::NOENT;

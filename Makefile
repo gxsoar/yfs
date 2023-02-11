@@ -1,4 +1,4 @@
-LAB=5
+LAB=6
 SOL=0
 RPC=./rpc
 LAB2GE=$(shell expr $(LAB) \>\= 2)
@@ -95,9 +95,6 @@ ifeq ($(LAB7GE),1)
 endif
 ifeq ($(LAB4GE),1)
   yfs_client += lock_client_cache.cc
-endif
-ifeq ($(LAB5GE),1)
-  yfs_client += extent_client_cache.cc
 endif
 yfs_client : $(patsubst %.cc,%.o,$(yfs_client)) rpc/librpc.a
 

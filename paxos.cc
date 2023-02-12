@@ -98,6 +98,7 @@ bool proposer::run(int instance, std::vector<std::string> cur_nodes,
   accepts.clear();
   v.clear();
   if (prepare(instance, accepts, cur_nodes, v)) {
+    // prepare阶段的第一轮投票
     if (majority(cur_nodes, accepts)) {
       tprintf("paxos::manager: received a majority of prepare responses\n");
 
@@ -108,7 +109,7 @@ bool proposer::run(int instance, std::vector<std::string> cur_nodes,
       nodes = accepts;
       accepts.clear();
       accept(instance, accepts, nodes, v);
-
+      // accept阶段的第二轮投票
       if (majority(cur_nodes, accepts)) {
         tprintf("paxos::manager: received a majority of accept responses\n");
 
@@ -140,7 +141,6 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
   // Note: if got an "oldinstance" reply, commit the instance using
   // acc->commit(...), and return false.
   // accepts 表示接收prepare的node, nodes表示所有的acceptor，需要给他们发送prepare
-  setn();
   prop_t max_n_a;
   for (auto &node : nodes) {
     paxos_protocol::prepareres pres;
@@ -155,6 +155,7 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     }
     if (pres.accept) {
       accepts.push_back(node);
+      max_n_a.m = pres.n_a.m; 
       if (pres.n_a > max_n_a) {
         max_n_a = pres.n_a;
         v = pres.v_a;
@@ -169,11 +170,35 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
 void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
                       std::vector<std::string> nodes, std::string v) {
   // You fill this in for Lab 6
+  paxos_protocol::acceptarg a_arg;
+  a_arg.instance = instance;
+  a_arg.n = my_n;
+  for (auto &node : nodes) {
+    handle h(node);
+    bool r;
+    pxs_mutex.unlock();
+    int ret = h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r);
+    pxs_mutex.lock();
+    if (a_arg.v == v) {
+      accepts.push_back(node);
+    }
+  }
 }
 
 void proposer::decide(unsigned instance, std::vector<std::string> accepts,
                       std::string v) {
   // You fill this in for Lab 6
+  paxos_protocol::decidearg d_arg;
+  d_arg.instance = instance;
+  d_arg.v = v;
+  for (auto node : accepts) {
+    handle h(node);
+    pxs_mutex.unlock();
+    int r;
+    int ret = h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r);
+    pxs_mutex.lock();
+
+  }
 }
 
 acceptor::acceptor(class paxos_change *_cfg, bool _first, std::string _me,
@@ -207,6 +232,19 @@ paxos_protocol::status acceptor::preparereq(std::string src,
   // You fill this in for Lab 6
   // Remember to initialize *BOTH* r.accept and r.oldinstance appropriately.
   // Remember to *log* the proposal if the proposal is accepted.
+  if (a.instance <= acceptor::get_instance_h()) {
+    r.oldinstance = true;
+    r.accept = false;
+    return paxos_protocol::ERR;
+  }
+  if (a.instance > acceptor::instance_h) {
+    acceptor::instance_h = a.instance;
+    acceptor::n_h = a.n;
+    values[a.instance] = 
+    r.accept = true;
+    r.oldinstance = false;
+    r.n_a = 
+  }
   return paxos_protocol::OK;
 }
 

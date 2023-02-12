@@ -4,8 +4,8 @@
 #include "rpc.h"
 
 struct prop_t {
-  unsigned n;
-  std::string m;
+  unsigned n; // n 表示paxos执行的轮数
+  std::string m;  // m 表示发送信息的acceptor的名称
 };
 
 class paxos_protocol {
@@ -27,14 +27,14 @@ class paxos_protocol {
   struct prepareres {
     bool oldinstance;
     bool accept;
-    prop_t n_a;
-    std::string v_a;
+    prop_t n_a;       // 发送的节点的信息
+    std::string v_a;  // 发送的value值
   };
 
   struct acceptarg {
-    unsigned instance;
-    prop_t n;
-    std::string v;
+    unsigned instance;  // 发送的轮数
+    prop_t n;           // 发送的节点的信息
+    std::string v;      // 发送的值
   };
 
   struct decidearg {

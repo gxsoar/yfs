@@ -30,8 +30,8 @@ main(int argc, char *argv[])
 
   srandom(getpid());
 
-  if(argc != 2){
-    fprintf(stderr, "Usage: %s port\n", argv[0]);
+  if(argc != 3){
+    fprintf(stderr, "Usage: %s [master:]port [me:]port\n", argv[0]);
     exit(1);
   }
 
@@ -45,19 +45,10 @@ main(int argc, char *argv[])
   // server and the RSM.  In Lab 6, we disable the lock server and
   // implement Paxos.  In Lab 7, we will make the lock server use your
   // RSM layer.
-#define RSM
+#define	RSM
 #ifdef RSM
-  // lock_server ls;
-  rsm rsm(argv[1], argv[2]);
-  rpcs server(atoi(argv[1]), count);
-  lock_server_cache lsc;
-  // server.reg(lock_protocol::stat, &ls, &lock_server::stat);
-  // server.reg(lock_protocol::acquire, &ls, &lock_server::acquire);
-  // server.reg(lock_protocol::release, &ls, &lock_server::release);
-  server.reg(lock_protocol::stat, &lsc, &lock_server_cache::stat);
-  server.reg(lock_protocol::acquire, &lsc, &lock_server_cache::acquire);
-  server.reg(lock_protocol::release, &lsc, &lock_server_cache::release);
-#endif  // RSM
+   rsm rsm(argv[1], argv[2]);
+#endif // RSM
 
 
   while(1)

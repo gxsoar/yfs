@@ -28,7 +28,7 @@ class acceptor {
   prop_t n_a;		// number of highest proposal accepted
   std::string v_a;	// value of highest proposal accepted
   unsigned instance_h;	// number of the highest instance we have decided
-  std::map<unsigned,std::string> values;	// vals of each instance
+  std::map<unsigned,std::string> values;	// vals of each instance, 只有在commit阶段才会碰到instance和value的存储
 
   void commit_wo(unsigned instance, std::string v);
   paxos_protocol::status preparereq(std::string src, 

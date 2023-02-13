@@ -142,15 +142,17 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
   // acc->commit(...), and return false.
   // accepts 表示接收prepare的node, nodes表示所有的acceptor，需要给他们发送prepare
   prop_t max_n_a;
+  paxos_protocol::preparearg pre_arg;
+  pre_arg.instance = instance;
+  pre_arg.n = my_n;
   for (auto &node : nodes) {
     paxos_protocol::prepareres pres;
-    paxos_protocol::preparearg pre_arg;
     handle h(node);
     pxs_mutex.unlock();
     int ret = h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres);
     pxs_mutex.lock();
     if (pres.oldinstance) {
-      acc->commit(instance, v);
+      acc->commit(instance, pres.v_a);
       return false;
     }
     if (pres.accept) {
@@ -173,13 +175,14 @@ void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
   paxos_protocol::acceptarg a_arg;
   a_arg.instance = instance;
   a_arg.n = my_n;
+  a_arg.v = v;
   for (auto &node : nodes) {
     handle h(node);
-    bool r;
+    bool r = false;
     pxs_mutex.unlock();
     int ret = h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r);
     pxs_mutex.lock();
-    if (a_arg.v == v) {
+    if (r) {
       accepts.push_back(node);
     }
   }
@@ -197,7 +200,6 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
     int r;
     int ret = h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r);
     pxs_mutex.lock();
-
   }
 }
 
@@ -235,15 +237,15 @@ paxos_protocol::status acceptor::preparereq(std::string src,
   if (a.instance <= acceptor::get_instance_h()) {
     r.oldinstance = true;
     r.accept = false;
+    r.v_a = values[a.instance];
     return paxos_protocol::ERR;
   }
-  if (a.instance > acceptor::instance_h) {
-    acceptor::instance_h = a.instance;
-    acceptor::n_h = a.n;
-    values[a.instance] = 
-    r.accept = true;
-    r.oldinstance = false;
-    r.n_a = 
+  acceptor::instance_h = a.instance;
+  r.accept = true;
+  r.oldinstance = false;
+  if (acceptor::n_h > a.n) {
+    r.n_a = acceptor::n_h;
+    r.v_a = acceptor::v_a;
   }
   return paxos_protocol::OK;
 }
@@ -254,7 +256,14 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
                                            bool &r) {
   // You fill this in for Lab 6
   // Remember to *log* the accept if the proposal is accepted.
-
+  if (a.n > acceptor::n_a) {
+    acceptor::n_a = a.n;
+    acceptor::v_a = a.v;
+    r = true;
+  }
+  else {
+    r = false;
+  }
   return paxos_protocol::OK;
 }
 

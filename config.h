@@ -3,12 +3,13 @@
 
 #include <string>
 #include <vector>
+
 #include "paxos.h"
 
 class config_view_change {
  public:
   virtual void commit_change(unsigned vid) = 0;
-  virtual ~config_view_change() {};
+  virtual ~config_view_change(){};
 };
 
 class config : public paxos_change {
@@ -31,11 +32,12 @@ class config : public paxos_change {
   bool remove_wo(std::string);
   void reconstruct();
   typedef enum {
-    OK,	// response and same view #
-    VIEWERR,	// response but different view #
-    FAILURE,	// no response
+    OK,       // response and same view #
+    VIEWERR,  // response but different view #
+    FAILURE,  // no response
   } heartbeat_t;
   heartbeat_t doheartbeat(std::string m);
+
  public:
   config(std::string _first, std::string _me, config_view_change *_vc);
   unsigned vid() { return myvid; }

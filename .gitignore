@@ -29,3 +29,7 @@ extent_server.log
 test-lab-3-b
 test-lab-3-c
 core
+rsm_tester
+config
+lock_server-*.log
+paxos-*.log

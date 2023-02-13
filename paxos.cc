@@ -149,7 +149,7 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     paxos_protocol::prepareres pres;
     handle h(node);
     pxs_mutex.unlock();
-    int ret = h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres);
+    int ret = h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
     pxs_mutex.lock();
     if (pres.oldinstance) {
       acc->commit(instance, pres.v_a);
@@ -180,7 +180,7 @@ void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
     handle h(node);
     bool r = false;
     pxs_mutex.unlock();
-    int ret = h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r);
+    int ret = h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r, rpcc::to(1000));
     pxs_mutex.lock();
     if (r) {
       accepts.push_back(node);
@@ -198,7 +198,7 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
     handle h(node);
     pxs_mutex.unlock();
     int r;
-    int ret = h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r);
+    int ret = h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r, rpcc::to(1000));
     pxs_mutex.lock();
   }
 }

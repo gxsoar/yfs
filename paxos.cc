@@ -149,7 +149,7 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     paxos_protocol::prepareres pres;
     handle h(node);
     pxs_mutex.unlock();
-    int ret = h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
+    h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
     pxs_mutex.lock();
     if (pres.oldinstance) {
       acc->commit(instance, pres.v_a);
@@ -180,7 +180,7 @@ void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
     handle h(node);
     bool r = false;
     pxs_mutex.unlock();
-    int ret = h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r, rpcc::to(1000));
+    h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r, rpcc::to(1000));
     pxs_mutex.lock();
     if (r) {
       accepts.push_back(node);
@@ -198,7 +198,7 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
     handle h(node);
     pxs_mutex.unlock();
     int r;
-    int ret = h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r, rpcc::to(1000));
+    h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r, rpcc::to(1000));
     pxs_mutex.lock();
   }
 }
@@ -234,19 +234,22 @@ paxos_protocol::status acceptor::preparereq(std::string src,
   // You fill this in for Lab 6
   // Remember to initialize *BOTH* r.accept and r.oldinstance appropriately.
   // Remember to *log* the proposal if the proposal is accepted.
-  if (a.instance <= acceptor::get_instance_h()) {
+  std::cout << "acceptor::preparereq instance " << a.instance << " get_instance_h " << acceptor::get_instance_h() << "\n";
+  if (a.instance < acceptor::get_instance_h()) {
     r.oldinstance = true;
     r.accept = false;
     r.v_a = values[a.instance];
     return paxos_protocol::ERR;
   }
-  acceptor::instance_h = a.instance;
   r.accept = true;
   r.oldinstance = false;
   if (acceptor::n_h > a.n) {
     r.n_a = acceptor::n_h;
     r.v_a = acceptor::v_a;
+  } else {
+    acceptor::n_h = a.n;
   }
+  l->logprop(acceptor::n_h);
   return paxos_protocol::OK;
 }
 
@@ -260,6 +263,7 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
     acceptor::n_a = a.n;
     acceptor::v_a = a.v;
     r = true;
+    l->logaccept(acceptor::n_a, acceptor::v_a);
   }
   else {
     r = false;
@@ -275,6 +279,7 @@ paxos_protocol::status acceptor::decidereq(std::string src,
   std::scoped_lock<std::mutex> ml(pxs_mutex);
   tprintf("decidereq for accepted instance %d (my instance %d) v=%s\n",
           a.instance, instance_h, v_a.c_str());
+  //  bug instance_h不等于a.instance 也就没犯法提交v_a， instance_h如何更新？
   if (a.instance == instance_h + 1) {
     VERIFY(v_a == a.v);
     commit_wo(a.instance, v_a);

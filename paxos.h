@@ -21,7 +21,8 @@ class acceptor {
   rpcs *pxs;
   paxos_change *cfg;
   std::string me;
-  std::mutex pxs_mutex;
+  // std::mutex pxs_mutex;
+  pthread_mutex_t pxs_mutex;
 
   // Acceptor state
   prop_t n_h;		// number of the highest proposal seen in a prepare
@@ -67,8 +68,8 @@ class proposer {
   bool break1;
   bool break2;
 
-//   pthread_mutex_t pxs_mutex;
-  std::mutex pxs_mutex;
+  pthread_mutex_t pxs_mutex;
+  // std::mutex pxs_mutex;
 
   // Proposer state
   bool stable;

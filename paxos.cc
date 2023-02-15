@@ -43,8 +43,8 @@ bool isamember(std::string m, const std::vector<std::string> &nodes) {
 
 bool proposer::isrunning() {
   bool r;
-  // ScopedLock ml(&pxs_mutex);
-  std::scoped_lock<std::mutex> ml(pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
+  // std::scoped_lock<std::mutex> ml(pxs_mutex);
   r = !stable;
   return r;
 }
@@ -85,8 +85,8 @@ bool proposer::run(int instance, std::vector<std::string> cur_nodes,
   std::string v;
   bool r = false;
 
-  // ScopedLock ml(&pxs_mutex);
-  std::scoped_lock<std::mutex> ml(pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
+  // std::scoped_lock<std::mutex> ml(pxs_mutex);
   tprintf("start: initiate paxos for %s w. i=%d v=%s stable=%d\n",
           print_members(cur_nodes).c_str(), instance, newv.c_str(), stable);
   if (!stable) {  // already running proposer?
@@ -147,11 +147,15 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
   pre_arg.n = my_n;
   for (auto &node : nodes) {
     paxos_protocol::prepareres pres;
+    pres.oldinstance = false;
     handle h(node);
-    pxs_mutex.unlock();
+    // pxs_mutex.unlock();
+    pthread_mutex_unlock(&pxs_mutex);
     h.safebind()->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
-    pxs_mutex.lock();
+    // pxs_mutex.lock();
+    pthread_mutex_lock(&pxs_mutex);
     if (pres.oldinstance) {
+      std::cout << "proposer::prepare oldinstance instance " << instance << " pres.v_a " << pres.v_a << "\n";
       acc->commit(instance, pres.v_a);
       return false;
     }
@@ -179,9 +183,11 @@ void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
   for (auto &node : nodes) {
     handle h(node);
     bool r = false;
-    pxs_mutex.unlock();
+    // pxs_mutex.unlock();
+    pthread_mutex_unlock(&pxs_mutex);
     h.safebind()->call(paxos_protocol::acceptreq, me, a_arg, r, rpcc::to(1000));
-    pxs_mutex.lock();
+    // pxs_mutex.lock();
+    pthread_mutex_lock(&pxs_mutex);
     if (r) {
       accepts.push_back(node);
     }
@@ -196,10 +202,12 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
   d_arg.v = v;
   for (auto node : accepts) {
     handle h(node);
-    pxs_mutex.unlock();
+    // pxs_mutex.unlock();
+    pthread_mutex_unlock(&pxs_mutex);
     int r;
     h.safebind()->call(paxos_protocol::decidereq, me, d_arg, r, rpcc::to(1000));
-    pxs_mutex.lock();
+    // pxs_mutex.lock();
+    pthread_mutex_lock(&pxs_mutex);
   }
 }
 
@@ -275,13 +283,14 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
 paxos_protocol::status acceptor::decidereq(std::string src,
                                            paxos_protocol::decidearg a,
                                            int &r) {
-  // ScopedLock ml(&pxs_mutex);
-  std::scoped_lock<std::mutex> ml(pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
+  // std::scoped_lock<std::mutex> ml(pxs_mutex);
   tprintf("decidereq for accepted instance %d (my instance %d) v=%s\n",
           a.instance, instance_h, v_a.c_str());
   //  bug instance_h不等于a.instance 也就没犯法提交v_a， instance_h如何更新？
   if (a.instance == instance_h + 1) {
     VERIFY(v_a == a.v);
+    std::cout << "paxos acceptor::decidereq v_a " << v_a << " a.v " << a.v << "\n";
     commit_wo(a.instance, v_a);
   } else if (a.instance <= instance_h) {
     // we are ahead ignore.
@@ -306,18 +315,18 @@ void acceptor::commit_wo(unsigned instance, std::string value) {
     n_a.m = me;
     v_a.clear();
     if (cfg) {
-      // pthread_mutex_unlock(&pxs_mutex);
-      pxs_mutex.unlock();
+      pthread_mutex_unlock(&pxs_mutex);
+      // pxs_mutex.unlock();
       cfg->paxos_commit(instance, value);
-      pxs_mutex.lock();
-      // pthread_mutex_lock(&pxs_mutex);
+      // pxs_mutex.lock();
+      pthread_mutex_lock(&pxs_mutex);
     }
   }
 }
 
 void acceptor::commit(unsigned instance, std::string value) {
-  // ScopedLock ml(&pxs_mutex);
-  std::scoped_lock<std::mutex> ml(pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
+  // std::scoped_lock<std::mutex> ml(pxs_mutex);
   commit_wo(instance, value);
 }
 

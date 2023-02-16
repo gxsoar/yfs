@@ -67,6 +67,7 @@
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <time.h>
+
 #include <algorithm>
 
 #include "gettime.h"
@@ -189,7 +190,8 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
   int xid_rep;
   {
     ScopedLock ml(&m_);
-    // 如果proc未绑定或者或者已经绑定完成了测出错，需要proc == bind && !bind_done_
+    // 如果proc未绑定或者或者已经绑定完成了测出错，需要proc == bind &&
+    // !bind_done_
     if ((proc != rpc_const::bind && !bind_done_) ||
         (proc == rpc_const::bind && bind_done_)) {
       jsl_log(JSL_DBG_1,
@@ -203,7 +205,8 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
 
     ca.xid = xid_++;
     calls_[ca.xid] = &ca;
-    // req_header头部的信息有：caller的xid, proc的状态, clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()?
+    // req_header头部的信息有：caller的xid, proc的状态,
+    // clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()?
     req_header h(ca.xid, proc, clt_nonce_, srv_nonce_, xid_rep_window_.front());
     req.pack_req_header(h);
     xid_rep = xid_rep_window_.front();  // xid_rep返回的rep的xid
@@ -228,7 +231,8 @@ int rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep, TO to) {
           {
             ScopedLock ml(&m_);
             if (dup_req_.isvalid() && xid_rep_done_ > dup_req_.xid) {
-              // 如果dup_req_是合法的, 并且已经发送的xid_repd的序号 > dup_req_xid说明dup_req是忘记发送了
+              // 如果dup_req_是合法的, 并且已经发送的xid_repd的序号 >
+              // dup_req_xid说明dup_req是忘记发送了
               forgot = dup_req_;
               dup_req_.clear();
             }
@@ -482,8 +486,9 @@ void rpcs::dispatch(djob_t *j) {
   connection *c = j->conn;
   unmarshall req(j->buf, j->sz);
   delete j;
-  // req_header头部的信息有：caller的xid, proc的状态, clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()?
-  // req_header h(ca.xid, proc, clt_nonce_, srv_nonce_, xid_rep_window_.front());
+  // req_header头部的信息有：caller的xid, proc的状态,
+  // clt_nonce_编号，srv_nonce_的编号,xid_rep_window_.front()? req_header
+  // h(ca.xid, proc, clt_nonce_, srv_nonce_, xid_rep_window_.front());
   req_header h;
   req.unpack_req_header(&h);
   int proc = h.proc;
@@ -646,21 +651,20 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
                                                  unsigned int xid,
                                                  unsigned int xid_rep, char **b,
                                                  int *sz) {
-  // You fill this in for Lab 1.                                                
-  ScopedLock rwl(&reply_window_m_); 
+  // You fill this in for Lab 1.
+  ScopedLock rwl(&reply_window_m_);
   if (reply_window_.count(clt_nonce) == 0) {
-    if (reply_window_[clt_nonce].size() == 0)
-      return NEW;
+    if (reply_window_[clt_nonce].size() == 0) return NEW;
   }
   auto &clt_window = reply_window_[clt_nonce];
   if (clt_window.front().xid > xid) {
-      return FORGOTTEN;
+    return FORGOTTEN;
   }
-  for (auto ite = clt_window.begin(); ite != clt_window.end(); ) {
+  for (auto ite = clt_window.begin(); ite != clt_window.end();) {
     if (ite->xid < xid_rep && ite->cb_present) {
       free(ite->buf);
       ite = clt_window.erase(ite);
-    } 
+    }
     if (ite->xid == xid) {
       if (ite->cb_present) {
         *b = ite->buf;
@@ -673,7 +677,7 @@ rpcs::rpcstate_t rpcs::checkduplicate_and_update(unsigned int clt_nonce,
   }
   reply_t tmp(xid);
   auto ite = clt_window.begin();
-  for (; ite != clt_window.end(); ++ ite) {
+  for (; ite != clt_window.end(); ++ite) {
     if (ite->xid > xid) {
       clt_window.insert(ite, tmp);
       break;
@@ -694,20 +698,19 @@ void rpcs::add_reply(unsigned int clt_nonce, unsigned int xid, char *b,
                      int sz) {
   ScopedLock rwl(&reply_window_m_);
   // You fill this in for Lab 1.
-  auto ite = std::find(reply_window_[clt_nonce].begin(), reply_window_[clt_nonce].end(), xid);
+  auto ite = std::find(reply_window_[clt_nonce].begin(),
+                       reply_window_[clt_nonce].end(), xid);
   if (ite != reply_window_[clt_nonce].end()) {
     ite->buf = b;
     ite->sz = sz;
     ite->cb_present = true;
-  } 
-  else {
+  } else {
     reply_t tmp(xid);
     tmp.buf = b;
     tmp.sz = sz;
     tmp.cb_present = true;
     reply_window_[clt_nonce].push_back(tmp);
   }
-  
 }
 
 void rpcs::free_reply_window(void) {
@@ -733,7 +736,7 @@ int rpcs::rpcbind(int a, int &r) {
 
 void marshall::rawbyte(unsigned char x) {
   if (_ind >= _capa) {
-    _capa *= 2; //  如果读写头的位置大于容量的位置，执行2倍扩容
+    _capa *= 2;  //  如果读写头的位置大于容量的位置，执行2倍扩容
     VERIFY(_buf != NULL);
     _buf = (char *)realloc(_buf, _capa);
     VERIFY(_buf);

@@ -54,7 +54,8 @@ class rpcc : public chanmgr {
   unsigned int clt_nonce_;
   unsigned int srv_nonce_;
   bool bind_done_;
-  unsigned int xid_;	//	按照顺序来给caller_或者request分配xid,同时方便完成滑动窗口
+  unsigned int
+      xid_;  //	按照顺序来给caller_或者request分配xid,同时方便完成滑动窗口
   int lossytest_;
   bool retrans_;
   bool reachable_;
@@ -67,9 +68,10 @@ class rpcc : public chanmgr {
   bool destroy_wait_;
   pthread_cond_t destroy_wait_c_;
 
-  std::map<int, caller *> calls_;	// 每个rpcc都有一个clt_nonce_, 用来建立clt_nonce_和caller之间的映射
-  std::list<unsigned int> xid_rep_window_;	// 猜测每个rpcc的发送窗口, 和rpcs的什么关系？
-	// rpcc发送的请求
+  std::map<int, caller *> calls_;  // 每个rpcc都有一个clt_nonce_,
+                                   // 用来建立clt_nonce_和caller之间的映射
+  std::list<unsigned int> xid_rep_window_;  // 猜测每个rpcc的发送窗口,
+                                            // 和rpcs的什么关系？ rpcc发送的请求
   struct request {
     request() { clear(); }
     void clear() {
@@ -80,7 +82,7 @@ class rpcc : public chanmgr {
     std::string buf;
     int xid;
   };
-  struct request dup_req_;	// 用来表示重复的req请求
+  struct request dup_req_;  // 用来表示重复的req请求
   int xid_rep_done_;
 
  public:
@@ -97,7 +99,7 @@ class rpcc : public chanmgr {
     t.to = x;
     return t;
   }
-	// rpcc有一个单独的clt_nonce_用来标识,有一个xid用来标识每一个request
+  // rpcc有一个单独的clt_nonce_用来标识,有一个xid用来标识每一个request
   unsigned int id() { return clt_nonce_; }
 
   int bind(TO to = to_max);
@@ -107,7 +109,7 @@ class rpcc : public chanmgr {
   void cancel();
 
   int islossy() { return lossytest_ > 0; }
-	// rpcc的核心功能，用来管理rpcc对client的call的调用，用来将req打包发给rep
+  // rpcc的核心功能，用来管理rpcc对client的call的调用，用来将req打包发给rep
   int call1(unsigned int proc, marshall &req, unmarshall &rep, TO to);
 
   bool got_pdu(connection *c, char *b, int sz);
@@ -271,9 +273,7 @@ class rpcs : public chanmgr {
       buf = NULL;
       sz = 0;
     }
-    bool operator==(const reply_t &rhs) {
-      return xid == rhs.xid;
-    }
+    bool operator==(const reply_t &rhs) { return xid == rhs.xid; }
     unsigned int xid;
     bool cb_present;  // whether the reply buffer is valid
     char *buf;        // the reply buffer
@@ -286,7 +286,7 @@ class rpcs : public chanmgr {
   // provide at most once semantics by maintaining a window of replies
   // per client that that client hasn't acknowledged receiving yet.
   // indexed by client nonce.
-	// clt_nonce 对应的window
+  // clt_nonce 对应的window
   std::map<unsigned int, std::list<reply_t> > reply_window_;
 
   void free_reply_window(void);

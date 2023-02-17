@@ -56,6 +56,7 @@ bool proposer::majority(const std::vector<std::string> &l1,
   for (unsigned i = 0; i < l1.size(); i++) {
     if (isamember(l1[i], l2)) n++;
   }
+  std::cout << "proposer::majority n " << n << " l1.size() >> 1 + 1 " << (l1.size() >> 1) + 1 << "\n";
   return n >= (l1.size() >> 1) + 1;
 }
 
@@ -147,9 +148,9 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     handle h(node); 
     auto cl = h.safebind();
     if (cl == nullptr) continue;
-    // pthread_mutex_unlock(&pxs_mutex);
+    pthread_mutex_unlock(&pxs_mutex);
     int ret = cl->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
-    // pthread_mutex_lock(&pxs_mutex);
+    pthread_mutex_lock(&pxs_mutex);
     if (ret != paxos_protocol::OK) continue;
     if (pres.oldinstance) {
       acc->commit(instance, pres.v_a);
@@ -178,9 +179,9 @@ void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
     handle h(node);
     auto cl = h.safebind();
     if (cl == nullptr) continue;
-    // pthread_mutex_unlock(&pxs_mutex);
+    pthread_mutex_unlock(&pxs_mutex);
     int ret = cl->call(paxos_protocol::acceptreq, me, a_arg, r, rpcc::to(1000));
-    // pthread_mutex_lock(&pxs_mutex);
+    pthread_mutex_lock(&pxs_mutex);
     if (ret == paxos_protocol::OK && r) {
       accepts.push_back(node);
     }
@@ -195,10 +196,10 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
     handle h(node);
     auto cl = h.safebind();
     if (cl == nullptr) continue;
-    // pthread_mutex_unlock(&pxs_mutex);
+    pthread_mutex_unlock(&pxs_mutex);
     int r;
     cl->call(paxos_protocol::decidereq, me, d_arg, r, rpcc::to(1000));
-    // pthread_mutex_lock(&pxs_mutex);
+    pthread_mutex_lock(&pxs_mutex);
   }
 }
 
@@ -233,7 +234,7 @@ paxos_protocol::status acceptor::preparereq(std::string src,
   // You fill this in for Lab 6
   // Remember to initialize *BOTH* r.accept and r.oldinstance appropriately.
   // Remember to *log* the proposal if the proposal is accepted.
-  // ScopedLock ml(&pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
   std::cout << "acceptor::preparereq instance " << a.instance
             << " get_instance_h " << acceptor::get_instance_h() << "\n";
   if (a.instance <= acceptor::get_instance_h()) {
@@ -260,7 +261,7 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
                                            bool &r) {
   // You fill this in for Lab 6
   // Remember to *log* the accept if the proposal is accepted.
-  // ScopedLock ml(&pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
   if (a.n >= acceptor::n_h) {
     acceptor::n_a = a.n;
     acceptor::v_a = a.v;
@@ -277,7 +278,7 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
 paxos_protocol::status acceptor::decidereq(std::string src,
                                            paxos_protocol::decidearg a,
                                            int &r) {
-  // ScopedLock ml(&pxs_mutex);
+  ScopedLock ml(&pxs_mutex);
   tprintf("decidereq for accepted instance %d (my instance %d) v=%s\n",
           a.instance, instance_h, v_a.c_str());
   if (a.instance == instance_h + 1) {

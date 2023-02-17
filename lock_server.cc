@@ -26,7 +26,7 @@ int lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r) {
   auto ite = lock_table_.find(lid);
   if (ite != lock_table_.end()) {
     auto &the_lock = ite->second;
-    while(the_lock->lock_state_ != LockState::FREE) {
+    while (the_lock->lock_state_ != LockState::FREE) {
       the_lock->cv_.wait(ulock);
     }
     the_lock->lock_state_ = LockState::LOCKED;
@@ -35,7 +35,7 @@ int lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r) {
     new_lock->lock_state_ = LockState::LOCKED;
     lock_table_[lid] = new_lock;
   }
-  return ret;  
+  return ret;
 }
 
 int lock_server::release(int clt, lock_protocol::lockid_t lid, int &r) {
@@ -49,5 +49,5 @@ int lock_server::release(int clt, lock_protocol::lockid_t lid, int &r) {
   auto &the_lock = lock_table_[lid];
   the_lock->lock_state_ = LockState::FREE;
   the_lock->cv_.notify_all();
-  return ret; 
+  return ret;
 }

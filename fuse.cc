@@ -186,7 +186,7 @@ void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 void fuseserver_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
                       size_t size, off_t off, struct fuse_file_info *fi) {
   // You fill this in for Lab 2
-#if 1 
+#if 1
   // Change the above line to "#if 1", and your code goes here
   yfs_client::inum inum = ino;
   auto ret = yfs->write(inum, size, off, buf);
@@ -425,8 +425,7 @@ void fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name) {
   if (ret == yfs_client::NOENT) {
     fuse_reply_err(req, ENOENT);
     return;
-  }
-  else if (ret == yfs_client::OK) {
+  } else if (ret == yfs_client::OK) {
     fuse_reply_err(req, 0);
     return;
   }

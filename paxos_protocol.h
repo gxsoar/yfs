@@ -4,7 +4,7 @@
 #include "rpc.h"
 
 struct prop_t {
-  unsigned n; // n 表示paxos执行的轮数
+  unsigned n;     // n 表示paxos执行的轮数
   std::string m;  // m 表示发送信息的acceptor的名称
 };
 
@@ -41,44 +41,33 @@ class paxos_protocol {
     unsigned instance;
     std::string v;
   };
-
 };
 
-inline unmarshall &
-operator>>(unmarshall &u, prop_t &a)
-{
+inline unmarshall &operator>>(unmarshall &u, prop_t &a) {
   u >> a.n;
   u >> a.m;
   return u;
 }
 
-inline marshall &
-operator<<(marshall &m, prop_t a)
-{
+inline marshall &operator<<(marshall &m, prop_t a) {
   m << a.n;
   m << a.m;
   return m;
 }
 
-inline unmarshall &
-operator>>(unmarshall &u, paxos_protocol::preparearg &a)
-{
+inline unmarshall &operator>>(unmarshall &u, paxos_protocol::preparearg &a) {
   u >> a.instance;
   u >> a.n;
   return u;
 }
 
-inline marshall &
-operator<<(marshall &m, paxos_protocol::preparearg a)
-{
+inline marshall &operator<<(marshall &m, paxos_protocol::preparearg a) {
   m << a.instance;
   m << a.n;
   return m;
 }
 
-inline unmarshall &
-operator>>(unmarshall &u, paxos_protocol::prepareres &r)
-{
+inline unmarshall &operator>>(unmarshall &u, paxos_protocol::prepareres &r) {
   u >> r.oldinstance;
   u >> r.accept;
   u >> r.n_a;
@@ -86,9 +75,7 @@ operator>>(unmarshall &u, paxos_protocol::prepareres &r)
   return u;
 }
 
-inline marshall &
-operator<<(marshall &m, paxos_protocol::prepareres r)
-{
+inline marshall &operator<<(marshall &m, paxos_protocol::prepareres r) {
   m << r.oldinstance;
   m << r.accept;
   m << r.n_a;
@@ -96,35 +83,27 @@ operator<<(marshall &m, paxos_protocol::prepareres r)
   return m;
 }
 
-inline unmarshall &
-operator>>(unmarshall &u, paxos_protocol::acceptarg &a)
-{
+inline unmarshall &operator>>(unmarshall &u, paxos_protocol::acceptarg &a) {
   u >> a.instance;
   u >> a.n;
   u >> a.v;
   return u;
 }
 
-inline marshall &
-operator<<(marshall &m, paxos_protocol::acceptarg a)
-{
+inline marshall &operator<<(marshall &m, paxos_protocol::acceptarg a) {
   m << a.instance;
   m << a.n;
   m << a.v;
   return m;
 }
 
-inline unmarshall &
-operator>>(unmarshall &u, paxos_protocol::decidearg &a)
-{
+inline unmarshall &operator>>(unmarshall &u, paxos_protocol::decidearg &a) {
   u >> a.instance;
   u >> a.v;
   return u;
 }
 
-inline marshall &
-operator<<(marshall &m, paxos_protocol::decidearg a)
-{
+inline marshall &operator<<(marshall &m, paxos_protocol::decidearg a) {
   m << a.instance;
   m << a.v;
   return m;

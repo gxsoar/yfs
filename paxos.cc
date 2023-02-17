@@ -56,7 +56,8 @@ bool proposer::majority(const std::vector<std::string> &l1,
   for (unsigned i = 0; i < l1.size(); i++) {
     if (isamember(l1[i], l2)) n++;
   }
-  std::cout << "proposer::majority n " << n << " l1.size() >> 1 + 1 " << (l1.size() >> 1) + 1 << "\n";
+  std::cout << "proposer::majority n " << n << " l1.size() >> 1 + 1 "
+            << (l1.size() >> 1) + 1 << "\n";
   return n >= (l1.size() >> 1) + 1;
 }
 
@@ -68,7 +69,7 @@ proposer::proposer(class paxos_change *_cfg, class acceptor *_acceptor,
       break1(false),
       break2(false),
       stable(true) {
-  VERIFY (pthread_mutex_init(&pxs_mutex, NULL) == 0);
+  VERIFY(pthread_mutex_init(&pxs_mutex, NULL) == 0);
   my_n.n = 0;
   my_n.m = me;
 }
@@ -145,18 +146,18 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
   std::string max_v;
   for (const auto &node : nodes) {
     paxos_protocol::prepareres pres;
-    handle h(node); 
+    handle h(node);
     auto cl = h.safebind();
     if (cl == nullptr) continue;
     pthread_mutex_unlock(&pxs_mutex);
-    int ret = cl->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
+    int ret =
+        cl->call(paxos_protocol::preparereq, me, pre_arg, pres, rpcc::to(1000));
     pthread_mutex_lock(&pxs_mutex);
     if (ret != paxos_protocol::OK) continue;
     if (pres.oldinstance) {
       acc->commit(instance, pres.v_a);
       return false;
-    } 
-    else if (pres.accept) {
+    } else if (pres.accept) {
       accepts.push_back(node);
       if (pres.n_a > max_n_a) {
         max_n_a = pres.n_a;
@@ -206,7 +207,7 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
 acceptor::acceptor(class paxos_change *_cfg, bool _first, std::string _me,
                    std::string _value)
     : cfg(_cfg), me(_me), instance_h(0) {
-  VERIFY (pthread_mutex_init(&pxs_mutex, NULL) == 0);
+  VERIFY(pthread_mutex_init(&pxs_mutex, NULL) == 0);
 
   n_h.n = 0;
   n_h.m = me;

@@ -2,24 +2,24 @@
 // RSM test client
 //
 
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <string>
+#include <vector>
+
+#include "rpc.h"
 #include "rsm_protocol.h"
 #include "rsmtest_client.h"
-#include "rpc.h"
-#include <arpa/inet.h>
-#include <vector>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string>
 using namespace std;
 
 rsmtest_client *lc;
 
-int
-main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   int r;
 
-  if(argc != 4){
+  if (argc != 4) {
     fprintf(stderr, "Usage: %s [host:]port [partition] arg\n", argv[0]);
     exit(1);
   }
@@ -28,11 +28,11 @@ main(int argc, char *argv[])
   string command(argv[2]);
   if (command == "partition") {
     r = lc->net_repair(atoi(argv[3]));
-    printf ("net_repair returned %d\n", r);
+    printf("net_repair returned %d\n", r);
   } else if (command == "breakpoint") {
     int b = atoi(argv[3]);
     r = lc->breakpoint(b);
-    printf ("breakpoint %d returned %d\n", b, r);
+    printf("breakpoint %d returned %d\n", b, r);
   } else {
     fprintf(stderr, "Unknown command %s\n", argv[2]);
   }

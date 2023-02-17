@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "extent_client.h"
+#include "extent_client_cache.h"
 #include "lock_client.h"
 #include "lock_client_cache.h"
-#include "extent_client_cache.h"
 
 class yfs_client {
   // std::shared_ptr<lock_client> lc_;
@@ -58,7 +58,7 @@ class yfs_client {
   int create(const inum parent, const std::string &name, inum &child);
   int readdir(inum inum, std::vector<dirent> &);
   int lookup(const inum parent, const std::string &child_name,
-              inum &child_inum);
+             inum &child_inum);
   // lab2 part2
   int setattr(const inum, struct stat *attr);
   int read(const inum, const size_t &size, const off_t &off, std::string &buf);
@@ -69,14 +69,14 @@ class yfs_client {
 };
 
 class lock_guard {
-public:
-  lock_guard(lock_client *lc, lock_protocol::lockid_t lid) : lc_(lc), lid_(lid) {
+ public:
+  lock_guard(lock_client *lc, lock_protocol::lockid_t lid)
+      : lc_(lc), lid_(lid) {
     lc_->acquire(lid_);
   }
-  ~lock_guard() {
-    lc_->release(lid_);
-  }
-private:
+  ~lock_guard() { lc_->release(lid_); }
+
+ private:
   // std::shared_ptr<lock_client> lc_;
   lock_client *lc_;
   lock_protocol::lockid_t lid_;

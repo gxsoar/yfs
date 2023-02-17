@@ -30,7 +30,8 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
   // You fill this in for Lab 2.
   std::scoped_lock<std::mutex> lock(mutex_);
   if (content_map.count(id) == 0U) {
-    std::cout << "get content_map.count(id) == 0U ioerr" << " id = " << id << "\n";
+    std::cout << "get content_map.count(id) == 0U ioerr"
+              << " id = " << id << "\n";
     return extent_protocol::IOERR;
   }
   content_map[id].att_.atime = time(nullptr);

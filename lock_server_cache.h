@@ -9,12 +9,12 @@
 #include "lock_server.h"
 #include "rpc.h"
 
-enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING};
+enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 
 class Lock {
-public:
-
-  Lock(lock_protocol::lockid_t lid, ServerLockState state) : lid_(lid), state_(state) {}
+ public:
+  Lock(lock_protocol::lockid_t lid, ServerLockState state)
+      : lid_(lid), state_(state) {}
 
   void setServerLockState(ServerLockState state) { state_ = state; }
 
@@ -32,15 +32,15 @@ public:
     return (wait_client_set_.count(wait_id) != 0U);
   }
 
-  std::string getWaitClient() { return *wait_client_set_.begin();}
+  std::string getWaitClient() { return *wait_client_set_.begin(); }
 
   bool waitClientSetEmpty() { return wait_client_set_.empty(); }
 
-  std::string& getLockOwner() { return owner_; }
+  std::string &getLockOwner() { return owner_; }
 
   void setLockOwner(const std::string &owner) { owner_ = owner; }
 
-private:
+ private:
   // 保存锁的持有者的id
   std::string owner_;
   // 锁的id
@@ -55,10 +55,11 @@ class lock_server_cache {
  private:
   int nacquire;
   // 维护一个lock_server所持有的锁的集合
-  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>> lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+      lock_table_;
   std::mutex mutex_;
-private:
 
+ private:
  public:
   lock_server_cache();
   lock_protocol::status stat(lock_protocol::lockid_t, int &);

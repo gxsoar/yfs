@@ -3,9 +3,10 @@
 #ifndef lock_protocol_h
 #define lock_protocol_h
 
-#include "rpc.h"
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
+
+#include "rpc.h"
 
 class lock_protocol {
  public:
@@ -18,7 +19,7 @@ class lock_protocol {
 enum class LockState { FREE, LOCKED };
 
 class lock {
-public:
+ public:
   lock(lock_protocol::lockid_t ld);
   std::condition_variable cv_;
   LockState lock_state_;
@@ -29,10 +30,7 @@ class rlock_protocol {
  public:
   enum xxstatus { OK, RPCERR };
   typedef int status;
-  enum rpc_numbers {
-    revoke = 0x8001,
-    retry = 0x8002
-  };
+  enum rpc_numbers { revoke = 0x8001, retry = 0x8002 };
 };
 
 #endif

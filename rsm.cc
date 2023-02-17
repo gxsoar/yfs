@@ -153,7 +153,7 @@ void rsm::recovery() {
         commit_change_wo(cfg->vid());
       } else {
         VERIFY(pthread_mutex_unlock(&rsm_mutex) == 0);
-        sleep(5);  // XXX make another node in cfg primary?
+        sleep(30);  // XXX make another node in cfg primary?
         VERIFY(pthread_mutex_lock(&rsm_mutex) == 0);
       }
     }

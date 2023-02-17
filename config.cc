@@ -140,9 +140,7 @@ void config::paxos_commit(unsigned instance, std::string value) {
 
   mems = newmem;
   myvid = instance;
-  if (vc == nullptr) std::cout << "config::paxos_commit vc is nullptr\n";
   if (vc) {
-    std::cout << "config::paxos_commit vs isnot nullptr\n";
     unsigned vid = myvid;
     VERIFY(pthread_mutex_unlock(&cfg_mutex) == 0);
     vc->commit_change(vid);

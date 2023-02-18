@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "jsl_log.h"
-#include "lock_server_cache.h"
+#include "lock_server_cache_rsm.h"
 #include "paxos.h"
 #include "rpc.h"
 #include "rsm.h"
@@ -42,7 +42,22 @@ int main(int argc, char *argv[]) {
   //  RSM layer.
 #define RSM
 #ifdef RSM
+// You must comment out the next line once you are done with Step One.
+#define STEP_ONE
+#ifdef STEP_ONE
+  rpcs server(atoi(argv[1]));
+  lock_server_cache_rsm ls;
+  server.reg(lock_protocol::acquire, &ls, &lock_server_cache_rsm::acquire);
+  server.reg(lock_protocol::release, &ls, &lock_server_cache_rsm::release);
+  server.reg(lock_protocol::stat, &ls, &lock_server_cache_rsm::stat);
+#else
   rsm rsm(argv[1], argv[2]);
+  lock_server_cache_rsm ls(&rsm);
+  rsm.set_state_transfer((rsm_state_transfer *)&ls);
+  rsm.reg(lock_protocol::acquire, &ls, &lock_server_cache_rsm::acquire);
+  rsm.reg(lock_protocol::release, &ls, &lock_server_cache_rsm::release);
+  rsm.reg(lock_protocol::stat, &ls, &lock_server_cache_rsm::stat);
+#endif  // STEP_ONE
 #endif  // RSM
 
   while (1) sleep(1000);

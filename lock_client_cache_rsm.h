@@ -6,11 +6,13 @@
 
 #include <string>
 
+#include "extent_client_cache.h"
 #include "lang/verify.h"
 #include "lock_client.h"
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "rsm_client.h"
+#include "rpc/fifo.h"
 
 // Classes that inherit lock_release_user can override dorelease so that
 // that they will be called when lock_client releases a lock.
@@ -22,6 +24,40 @@ class lock_release_user {
 };
 
 class lock_client_cache_rsm;
+
+class lock_release : public lock_release_user {
+ public:
+  lock_release(extent_client_cache *ec) : ec_(ec) {}
+  void dorelease(lock_protocol::lockid_t);
+  virtual ~lock_release(){};
+
+ private:
+  extent_client_cache *ec_;
+};
+
+enum class ClientLockState { NONE, FREE, LOCKED, ACQUIRING, RELEASING };
+
+class Lock {
+ public:
+  Lock(lock_protocol::lockid_t lid, ClientLockState state)
+      : lid_(lid), state_(state) {}
+
+  lock_protocol::lockid_t getLockId() { return lid_; }
+
+  ClientLockState getClientLockState() { return state_; }
+
+  void setClientLockState(ClientLockState state) { state_ = state; }
+
+  bool operator==(const Lock &rhs) { return rhs.lid_ == lid_; }
+
+ public:
+  bool revoked_{false};
+  bool retry_{false};
+
+ private:
+  lock_protocol::lockid_t lid_;
+  ClientLockState state_;
+};
 
 // Clients that caches locks.  The server can revoke locks using
 // lock_revoke_server.
@@ -45,6 +81,14 @@ class lock_client_cache_rsm : public lock_client {
                                         lock_protocol::xid_t, int &);
   rlock_protocol::status retry_handler(lock_protocol::lockid_t,
                                        lock_protocol::xid_t, int &);
+
+ private:
+  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+      lock_table_;
+  std::mutex mutex_;
+  std::condition_variable retry_cv_;
+  std::condition_variable wait_cv_;
+  std::condition_variable release_cv_;
 };
 
 #endif

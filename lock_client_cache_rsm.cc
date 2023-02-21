@@ -41,6 +41,7 @@ lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
   // You fill this in Step Two, Lab 7
   // - Create rsmc, and use the object to do RPC
   //   calls instead of the rpcc object of lock_client
+  rsmc = new rsm_client(xdst);
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *)this);
   VERIFY(r == 0);
@@ -55,6 +56,17 @@ void lock_client_cache_rsm::releaser() {
   // This method should be a continuous loop, waiting to be notified of
   // freed locks that have been revoked by the server, so that it can
   // send a release RPC.
+  std::shared_ptr<Lock> lock;
+  while(true) {
+      release_fifo_.deq(&lock);
+      if (lu != nullptr) lu->dorelease(lock->getLockId());
+      int r;
+      rsmc->call(lock_protocol::release, lock->getLockId(),id, lock->getLockXid(), r);
+      mutex_.lock();
+      lock->setClientLockState(ClientLockState::NONE);
+      release_cv_.notify_all();
+      mutex_.unlock();
+  }
 }
 
 lock_protocol::status lock_client_cache_rsm::acquire(
@@ -73,8 +85,10 @@ lock_protocol::status lock_client_cache_rsm::acquire(
         lock->setClientLockState(ClientLockState::ACQUIRING);
         lock->retry_ = false;
         int r;
+        lock_protocol::xid_t acquire_xid = ++xid;
         ulock.unlock();
-        auto server_ret = cl->call(lock_protocol::acquire, lid, id, r);
+        // auto server_ret = cl->call(lock_protocol::acquire, lid, id, r);
+        auto server_ret = rsmc->call(lock_protocol::acquire, lid, id, acquire_xid, r);
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
@@ -105,7 +119,8 @@ lock_protocol::status lock_client_cache_rsm::acquire(
           ulock.unlock();
           lock->retry_ = false;
           int r;
-          ret = cl->call(lock_protocol::acquire, lid, id, r);
+          lock_protocol::xid_t acqueir_xid = ++xid;
+          ret = rsmc->call(lock_protocol::acquire, lid, id, acqueir_xid, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
             lock->setClientLockState(ClientLockState::LOCKED);
@@ -150,7 +165,7 @@ lock_protocol::status lock_client_cache_rsm::release(
   }
   lock->setClientLockState(ClientLockState::FREE);
   wait_cv_.notify_one();
-  return ret;
+  return lock_protocol::OK;
 }
 
 rlock_protocol::status lock_client_cache_rsm::revoke_handler(
@@ -161,20 +176,25 @@ rlock_protocol::status lock_client_cache_rsm::revoke_handler(
     return rlock_protocol::RPCERR;
   }
   auto lock = lock_table_[lid];
+  if (lock->getLockXid() != xid) {
+    return rlock_protocol::RPCERR;
+  } 
   int ret = rlock_protocol::OK;
   if (lock->getClientLockState() == ClientLockState::FREE) {
     lock->setClientLockState(ClientLockState::RELEASING);
-    ulock.unlock();
-    int r;
-    if (lu != nullptr) lu->dorelease(lid);
-    std::cout << "revoke lu->dorelease\n";
-    ret = cl->call(lock_protocol::release, lid, id, r);
-    ulock.lock();
-    if (ret != lock_protocol::OK) {
-      return lock_protocol::RPCERR;
-    }
-    lock->setClientLockState(ClientLockState::NONE);
-    release_cv_.notify_all();
+    lock->revoked_ = false;
+    release_fifo_.enq(lock);
+    // ulock.unlock();
+    // int r;
+    // if (lu != nullptr) lu->dorelease(lid);
+    // std::cout << "revoke lu->dorelease\n";
+    // ret = cl->call(lock_protocol::release, lid, id, r);
+    // ulock.lock();
+    // if (ret != lock_protocol::OK) {
+    //   return lock_protocol::RPCERR;
+    // }
+    // lock->setClientLockState(ClientLockState::NONE);
+    // release_cv_.notify_all();
   } else {
     lock->revoked_ = true;
   }

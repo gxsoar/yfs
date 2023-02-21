@@ -5,6 +5,7 @@
 #define lock_client_cache_rsm_h
 
 #include <string>
+#include <atomic>
 
 #include "extent_client_cache.h"
 #include "lang/verify.h"
@@ -44,6 +45,10 @@ class Lock {
 
   lock_protocol::lockid_t getLockId() { return lid_; }
 
+  lock_protocol::lockid_t getLockXid() { return xid_; }
+
+  void setLockXid(lock_protocol::lockid_t xid) { xid_ = xid; }
+
   ClientLockState getClientLockState() { return state_; }
 
   void setClientLockState(ClientLockState state) { state_ = state; }
@@ -56,6 +61,7 @@ class Lock {
 
  private:
   lock_protocol::lockid_t lid_;
+  lock_protocol::lockid_t xid_{0}; // 每个锁都有一个对应的请求的序列号
   ClientLockState state_;
 };
 
@@ -68,7 +74,8 @@ class lock_client_cache_rsm : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-  lock_protocol::xid_t xid;
+  std::atomic<lock_protocol::xid_t> xid{0};
+  fifo<std::shared_ptr<Lock>> release_fifo_;
 
  public:
   static int last_port;

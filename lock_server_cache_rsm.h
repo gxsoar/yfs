@@ -51,6 +51,8 @@ class Lock {
   ServerLockState state_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
+  // 请求该锁的requese id, 只记录该锁的最高的xid
+  lock_protocol::lockid_t xid_;
 };
 
 class lock_server_cache_rsm : public rsm_state_transfer {
@@ -60,6 +62,9 @@ class lock_server_cache_rsm : public rsm_state_transfer {
   std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
       lock_table_;
   std::mutex mutex_;
+  fifo<std::shared_ptr<Lock>> revoke_queue_;
+  fifo<std::shared_ptr<Lock>> retry_queue_;
+  
 
  public:
   lock_server_cache_rsm(class rsm *rsm = 0);

@@ -85,11 +85,12 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
     }
   }
   if (revoke) {
-    auto &owner = lock->getLockOwner();
-    handle h(owner);
-    ulock.unlock();
-    int r;
-    h.safebind()->call(rlock_protocol::revoke, lid, r);
+    // auto &owner = lock->getLockOwner();
+    // handle h(owner);
+    // ulock.unlock();
+    // int r;
+    // h.safebind()->call(rlock_protocol::revoke, lid, r);
+    revoke_queue_.enq(lock);
   }
   return ret;
 }
@@ -117,12 +118,13 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
     if (lock->waitClientSetEmpty()) {
       ret = lock_protocol::RPCERR;
     } else {
-      auto wait_client = lock->getWaitClient();
-      handle h(wait_client);
-      int r;
-      ret = lock_protocol::OK;
-      ulock.unlock();
-      h.safebind()->call(rlock_protocol::retry, lid, r);
+      // auto wait_client = lock->getWaitClient();
+      // handle h(wait_client);
+      // int r;
+      // ret = lock_protocol::OK;
+      // ulock.unlock();
+      // h.safebind()->call(rlock_protocol::retry, lid, r);
+      retry_queue_.enq(lock);
     }
   }
   return ret;

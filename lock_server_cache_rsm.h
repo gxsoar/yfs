@@ -15,8 +15,8 @@ enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 
 class Lock {
  public:
-  Lock(lock_protocol::lockid_t lid, ServerLockState state)
-      : lid_(lid), state_(state) {}
+  Lock(lock_protocol::lockid_t lid, ServerLockState state, lock_protocol::lockid_t xid)
+      : lid_(lid), state_(state), xid_(xid) {}
 
   void setServerLockState(ServerLockState state) { state_ = state; }
 
@@ -42,6 +42,12 @@ class Lock {
 
   void setLockOwner(const std::string &owner) { owner_ = owner; }
 
+  lock_protocol::lockid_t getLockXid() { return xid_; }
+
+  void setLockXid(lock_protocol::lockid_t xid) { xid_ = xid; }
+
+  lock_protocol::lockid_t getLockId() { return lid_; }
+
  private:
   // 保存锁的持有者的id
   std::string owner_;
@@ -52,7 +58,7 @@ class Lock {
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
   // 请求该锁的requese id, 只记录该锁的最高的xid
-  lock_protocol::lockid_t xid_;
+  lock_protocol::lockid_t xid_{0};
 };
 
 class lock_server_cache_rsm : public rsm_state_transfer {

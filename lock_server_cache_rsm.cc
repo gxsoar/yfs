@@ -36,12 +36,34 @@ void lock_server_cache_rsm::revoker() {
   // This method should be a continuous loop, that sends revoke
   // messages to lock holders whenever another client wants the
   // same lock
+  std::shared_ptr<Lock> lock;
+  int r;
+  while(true) {
+    if (!rsm->amiprimary()) continue;
+    revoke_queue_.deq(&lock);
+    auto &owner = lock->getLockOwner();
+    handle h(owner);
+    if (auto cl = h.safebind()) {
+      cl->call(rlock_protocol::revoke, lock->getLockId(), lock->getLockXid(), r);
+    }
+  }
 }
 
 void lock_server_cache_rsm::retryer() {
   // This method should be a continuous loop, waiting for locks
   // to be released and then sending retry messages to those who
   // are waiting for it.
+  std::shared_ptr<Lock> lock;
+  int r;
+  while(true) {
+    if (!rsm->amiprimary()) continue;
+    retry_queue_.deq(&lock);
+    auto &owner = lock->getLockOwner();
+    handle h(owner);
+    if (auto cl = h.safebind()) {
+      cl->call(rlock_protocol::retry, lock->getLockId(), lock->getLockXid(), r);
+    }
+  }
 }
 
 int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
@@ -50,11 +72,12 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
   std::unique_lock<std::mutex> ulock(mutex_);
   std::shared_ptr<Lock> lock;
   if (lock_table_.count(lid) == 0U) {
-    lock = std::make_shared<Lock>(lid, ServerLockState::FREE);
+    lock = std::make_shared<Lock>(lid, ServerLockState::FREE, xid);
     lock_table_[lid] = lock;
   }
   lock = lock_table_[lid];
-  lock_protocol::status ret = lock_protocol::OK;
+  if (lock->getLockXid() > xid) return lock_protocol::RPCERR;
+  if (lock->getLockXid() < xid) lock->setLockXid(xid);
   bool revoke = false;
   if (lock->getServerLockState() == ServerLockState::FREE) {
     lock->setServerLockState(ServerLockState::LOCKED);
@@ -103,6 +126,8 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
     return lock_protocol::RPCERR;
   }
   auto lock = lock_table_[lid];
+  if (lock->getLockXid() > xid) return lock_protocol::RPCERR;
+  else lock->setLockXid(xid);
   if (lock->getServerLockState() == ServerLockState::FREE ||
       lock->getServerLockState() == ServerLockState::RETRYING) {
     ret = lock_protocol::RPCERR;

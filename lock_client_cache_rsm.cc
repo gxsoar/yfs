@@ -47,11 +47,6 @@ lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
   VERIFY(r == 0);
 }
 
-void lock_release::dorelease(lock_protocol::lockid_t id) {
-  std::cout << "lock_release::dorelease\n";
-  ec_->flush(id);
-}
-
 void lock_client_cache_rsm::releaser() {
   // This method should be a continuous loop, waiting to be notified of
   // freed locks that have been revoked by the server, so that it can
@@ -62,10 +57,10 @@ void lock_client_cache_rsm::releaser() {
       if (lu != nullptr) lu->dorelease(lock->getLockId());
       int r;
       rsmc->call(lock_protocol::release, lock->getLockId(),id, lock->getLockXid(), r);
-      mutex_.lock();
+      // mutex_.lock();
       lock->setClientLockState(ClientLockState::NONE);
       release_cv_.notify_all();
-      mutex_.unlock();
+      // mutex_.unlock();
   }
 }
 

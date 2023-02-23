@@ -2,6 +2,7 @@
 #define __SCOPED_LOCK__
 
 #include <pthread.h>
+#include <iostream>
 
 #include "lang/verify.h"
 struct ScopedLock {
@@ -9,7 +10,7 @@ struct ScopedLock {
   pthread_mutex_t *m_;
 
  public:
-  ScopedLock(pthread_mutex_t *m) : m_(m) {
+  ScopedLock(pthread_mutex_t *m) : m_(m){
     VERIFY(pthread_mutex_lock(m_) == 0);
   }
   ~ScopedLock() { VERIFY(pthread_mutex_unlock(m_) == 0); }

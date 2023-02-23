@@ -31,7 +31,9 @@ class lock_release_user {
 class lock_release : public lock_release_user {
  public:
   lock_release(extent_client_cache *ec) : ec_(ec) {}
-  void dorelease(lock_protocol::lockid_t);
+  void dorelease(lock_protocol::lockid_t lid) {
+    ec_->flush(lid);
+  }
   virtual ~lock_release(){};
 
  private:

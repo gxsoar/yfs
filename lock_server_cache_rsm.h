@@ -16,7 +16,13 @@ enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 class Lock {
  public:
   Lock(lock_protocol::lockid_t lid, ServerLockState state, lock_protocol::lockid_t xid)
-      : lid_(lid), state_(state), xid_(xid) {}
+      // : lid_(lid), state_(state), xid_(xid) {
+      {
+        std::cout << "lid_ " << lid << " xid_ " << xid << "\n";
+        lid_ = lid;
+        xid_ = xid;
+        state_ = state;
+      }
 
   void setServerLockState(ServerLockState state) { state_ = state; }
 

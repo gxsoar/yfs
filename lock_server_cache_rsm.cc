@@ -30,6 +30,7 @@ lock_server_cache_rsm::lock_server_cache_rsm(class rsm *_rsm) : rsm(_rsm) {
   VERIFY(r == 0);
   r = pthread_create(&th, NULL, &retrythread, (void *)this);
   VERIFY(r == 0);
+  // rsm->set_state_transfer(this);
 }
 
 void lock_server_cache_rsm::revoker() {
@@ -39,8 +40,8 @@ void lock_server_cache_rsm::revoker() {
   std::shared_ptr<Lock> lock;
   int r;
   while(true) {
-    if (!rsm->amiprimary()) continue;
     revoke_queue_.deq(&lock);
+    if (!rsm->amiprimary()) continue;
     auto &owner = lock->getLockOwner();
     handle h(owner);
     if (auto cl = h.safebind()) {
@@ -56,8 +57,8 @@ void lock_server_cache_rsm::retryer() {
   std::shared_ptr<Lock> lock;
   int r;
   while(true) {
-    if (!rsm->amiprimary()) continue;
     retry_queue_.deq(&lock);
+    if (!rsm->amiprimary()) continue;
     auto &owner = lock->getLockOwner();
     handle h(owner);
     if (auto cl = h.safebind()) {
@@ -72,6 +73,7 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
   std::unique_lock<std::mutex> ulock(mutex_);
   std::shared_ptr<Lock> lock;
   if (lock_table_.count(lid) == 0U) {
+    // std::cout << "lid " << lid << " xid " << xid << "\n"; 
     lock = std::make_shared<Lock>(lid, ServerLockState::FREE, xid);
     lock_table_[lid] = lock;
   }

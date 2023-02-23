@@ -41,7 +41,7 @@ lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
   // You fill this in Step Two, Lab 7
   // - Create rsmc, and use the object to do RPC
   //   calls instead of the rpcc object of lock_client
-  rsmc = new rsm_client(xdst);
+  // rsmc = new rsm_client(xdst);
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *)this);
   VERIFY(r == 0);
@@ -56,7 +56,7 @@ void lock_client_cache_rsm::releaser() {
       release_fifo_.deq(&lock);
       if (lu != nullptr) lu->dorelease(lock->getLockId());
       int r;
-      rsmc->call(lock_protocol::release, lock->getLockId(),id, lock->getLockXid(), r);
+      cl->call(lock_protocol::release, lock->getLockId(),id, lock->getLockXid(), r);
       // mutex_.lock();
       lock->setClientLockState(ClientLockState::NONE);
       release_cv_.notify_all();
@@ -83,7 +83,7 @@ lock_protocol::status lock_client_cache_rsm::acquire(
         lock_protocol::xid_t acquire_xid = ++xid;
         ulock.unlock();
         // auto server_ret = cl->call(lock_protocol::acquire, lid, id, r);
-        auto server_ret = rsmc->call(lock_protocol::acquire, lid, id, acquire_xid, r);
+        auto server_ret = cl->call(lock_protocol::acquire, lid, id, acquire_xid, r);
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
@@ -115,7 +115,7 @@ lock_protocol::status lock_client_cache_rsm::acquire(
           lock->retry_ = false;
           int r;
           lock_protocol::xid_t acqueir_xid = ++xid;
-          ret = rsmc->call(lock_protocol::acquire, lid, id, acqueir_xid, r);
+          ret = cl->call(lock_protocol::acquire, lid, id, acqueir_xid, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
             lock->setClientLockState(ClientLockState::LOCKED);

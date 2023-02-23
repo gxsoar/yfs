@@ -25,9 +25,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
   id = host.str();
 }
 
-void lock_release::dorelease(lock_protocol::lockid_t id) {
-  ec_->flush(id);
-}
 
 lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);

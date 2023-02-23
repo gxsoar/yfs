@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <chrono>
 
 #include "rpc.h"
 #include "rsm_client.h"
@@ -51,16 +52,17 @@ void lock_client_cache_rsm::releaser() {
   // This method should be a continuous loop, waiting to be notified of
   // freed locks that have been revoked by the server, so that it can
   // send a release RPC.
-  std::shared_ptr<Lock> lock;
+  Lock *lock = nullptr;
   while(true) {
-      release_fifo_.deq(&lock);
+      release_fifo_.deq(lock);
       if (lu != nullptr) lu->dorelease(lock->getLockId());
       int r;
       cl->call(lock_protocol::release, lock->getLockId(),id, lock->getLockXid(), r);
-      // mutex_.lock();
+      std::unique_lock<std::mutex> ulck(mutex_);
       lock->setClientLockState(ClientLockState::NONE);
       release_cv_.notify_all();
-      // mutex_.unlock();
+      wait_cv_.notify_all();
+      ulck.unlock();
   }
 }
 
@@ -68,12 +70,13 @@ lock_protocol::status lock_client_cache_rsm::acquire(
     lock_protocol::lockid_t lid) {
   std::unique_lock<std::mutex> ulock(mutex_);
   int ret = lock_protocol::OK;
-  std::shared_ptr<Lock> lock;
+  Lock* lock = nullptr;
   if (lock_table_.count(lid) == 0U) {
-    lock = std::make_shared<Lock>(lid, ClientLockState::NONE);
+    lock = new Lock(lid, ClientLockState::NONE);
     lock_table_[lid] = lock;
+  } else {
+    lock = lock_table_[lid];
   }
-  lock = lock_table_[lid];
   while (true) {
     switch (lock->getClientLockState()) {
       case ClientLockState::NONE: {
@@ -82,12 +85,14 @@ lock_protocol::status lock_client_cache_rsm::acquire(
         int r;
         lock_protocol::xid_t acquire_xid = ++xid;
         ulock.unlock();
-        // auto server_ret = cl->call(lock_protocol::acquire, lid, id, r);
         auto server_ret = cl->call(lock_protocol::acquire, lid, id, acquire_xid, r);
         ulock.lock();
         if (server_ret == lock_protocol::RETRY) {
           if (!lock->retry_) {
-            retry_cv_.wait(ulock);
+            auto start = std::chrono::system_clock::now();
+            if (retry_cv_.wait_until(ulock, start + std::chrono::seconds(3)) == std::cv_status::timeout) {
+              lock->retry_ = true;
+            }
           }
         } else if (server_ret == lock_protocol::OK) {
           lock->setClientLockState(ClientLockState::LOCKED);
@@ -111,10 +116,10 @@ lock_protocol::status lock_client_cache_rsm::acquire(
         } else {
           // 对应第二个问题，当我们发送acquire rpc 但是 retry rpc的结果先到达,
           // 已经收到了retry就向 server请求锁
-          ulock.unlock();
           lock->retry_ = false;
           int r;
           lock_protocol::xid_t acqueir_xid = ++xid;
+          ulock.unlock();
           ret = cl->call(lock_protocol::acquire, lid, id, acqueir_xid, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
@@ -122,7 +127,10 @@ lock_protocol::status lock_client_cache_rsm::acquire(
             return ret;
           } else if (ret == lock_protocol::RETRY) {
             if (!lock->retry_) {
-              retry_cv_.wait(ulock);
+              auto now = std::chrono::system_clock::now();
+              if (retry_cv_.wait_until(ulock, now + std::chrono::seconds(3)) == std::cv_status::timeout) {
+                lock->retry_ = true;
+              }
             }
           }
         }
@@ -152,10 +160,11 @@ lock_protocol::status lock_client_cache_rsm::release(
     ulock.unlock();
     int r;
     if (lu != nullptr) lu->dorelease(lid);
-    ret = cl->call(lock_protocol::release, lid, id, r);
+    ret = cl->call(lock_protocol::release, lid, id, lock->getLockXid(), r);
     ulock.lock();
     lock->setClientLockState(ClientLockState::NONE);
     release_cv_.notify_all();
+    wait_cv_.notify_all();
     return ret;
   }
   lock->setClientLockState(ClientLockState::FREE);
@@ -178,7 +187,7 @@ rlock_protocol::status lock_client_cache_rsm::revoke_handler(
   if (lock->getClientLockState() == ClientLockState::FREE) {
     lock->setClientLockState(ClientLockState::RELEASING);
     lock->revoked_ = false;
-    release_fifo_.enq(lock);
+    release_fifo_.enq(*lock);
     // ulock.unlock();
     // int r;
     // if (lu != nullptr) lu->dorelease(lid);

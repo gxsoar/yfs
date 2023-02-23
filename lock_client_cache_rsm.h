@@ -65,7 +65,7 @@ class lock_client_cache_rsm : public lock_client {
   std::string hostname;
   std::string id;
   std::atomic<lock_protocol::xid_t> xid{0};
-  fifo<std::shared_ptr<Lock>> release_fifo_;
+  fifo<Lock> release_fifo_;
 
  public:
   static int last_port;
@@ -80,7 +80,7 @@ class lock_client_cache_rsm : public lock_client {
                                        lock_protocol::xid_t, int &);
 
  private:
-  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+  std::unordered_map<lock_protocol::lockid_t, Lock*>
       lock_table_;
   std::mutex mutex_;
   std::condition_variable retry_cv_;

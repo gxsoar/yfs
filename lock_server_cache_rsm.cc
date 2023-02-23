@@ -37,15 +37,15 @@ void lock_server_cache_rsm::revoker() {
   // This method should be a continuous loop, that sends revoke
   // messages to lock holders whenever another client wants the
   // same lock
-  std::shared_ptr<Lock> lock;
+  Lock *lock = nullptr;
   int r;
   while(true) {
     revoke_queue_.deq(&lock);
-    if (!rsm->amiprimary()) continue;
+    // if (!rsm->amiprimary()) continue;
     auto &owner = lock->getLockOwner();
     handle h(owner);
     if (auto cl = h.safebind()) {
-      cl->call(rlock_protocol::revoke, lock->getLockId(), lock->getLockXid(), r);
+      cl->call(rlock_protocol::revoke, lock->getLockId(), lock->getOwnerXid(), r);
     }
   }
 }
@@ -53,16 +53,16 @@ void lock_server_cache_rsm::revoker() {
 void lock_server_cache_rsm::retryer() {
   // This method should be a continuous loop, waiting for locks
   // to be released and then sending retry messages to those who
-  // are waiting for it.
-  std::shared_ptr<Lock> lock;
+  // are waiting for it->
+  Lock *lock = nullptr;
   int r;
   while(true) {
     retry_queue_.deq(&lock);
-    if (!rsm->amiprimary()) continue;
+    // if (!rsm->amiprimary()) continue;
     auto &owner = lock->getLockOwner();
     handle h(owner);
     if (auto cl = h.safebind()) {
-      cl->call(rlock_protocol::retry, lock->getLockId(), lock->getLockXid(), r);
+      cl->call(rlock_protocol::retry, lock->getLockId(), lock->getOwnerXid(), r);
     }
   }
 }
@@ -71,52 +71,54 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
                                    lock_protocol::xid_t xid, int &) {
   lock_protocol::status ret = lock_protocol::OK;
   std::unique_lock<std::mutex> ulock(mutex_);
-  std::shared_ptr<Lock> lock;
+  std::cout << "id " << id << " xid " << xid << "\n";
+  Lock *lock = nullptr;
   if (lock_table_.count(lid) == 0U) {
-    // std::cout << "lid " << lid << " xid " << xid << "\n"; 
-    lock = std::make_shared<Lock>(lid, ServerLockState::FREE, xid);
+    lock = new Lock(lid, ServerLockState::FREE);
     lock_table_[lid] = lock;
-  }
-  lock = lock_table_[lid];
-  if (lock->getLockXid() > xid) return lock_protocol::RPCERR;
-  if (lock->getLockXid() < xid) lock->setLockXid(xid);
+  } else lock = lock_table_[lid];
+  
   bool revoke = false;
-  if (lock->getServerLockState() == ServerLockState::FREE) {
-    lock->setServerLockState(ServerLockState::LOCKED);
-    lock->setLockOwner(id);
-    ret = lock_protocol::OK;
-  } else if (lock->getServerLockState() == ServerLockState::LOCKED) {
-    lock->setServerLockState(ServerLockState::LOCK_AND_WAIT);
-    revoke = true;
-    lock->addWaitClient(id);
-    ret = lock_protocol::RETRY;
-  } else if (lock->getServerLockState() == ServerLockState::LOCK_AND_WAIT) {
-    lock->addWaitClient(id);
-    ret = lock_protocol::RETRY;
-  } else {
-    if (lock->findWaitClient(id)) {
-      // 说明此时正在发送retry给该客户端，将其从集合中移除
-      lock->deleteWaitClient(id);
+  if (lock->getOwnerXid() > xid) {
+    return lock_protocol::RPCERR;
+  } else if (lock->getOwnerXid() < xid) {
+    if (lock->getServerLockState() == ServerLockState::FREE) {
+      lock->setServerLockState(ServerLockState::LOCKED);
       lock->setLockOwner(id);
-      if (!lock->waitClientSetEmpty()) {
-        lock->setServerLockState(ServerLockState::LOCK_AND_WAIT);
-        revoke = true;
-      } else {
-        lock->setServerLockState(ServerLockState::LOCKED);
-      }
-    } else {
+      lock->setOwnerXid(xid);
+      ret = lock_protocol::OK;
+    } else if (lock->getServerLockState() == ServerLockState::LOCKED) {
+      lock->setServerLockState(ServerLockState::LOCK_AND_WAIT);
+      revoke = true;
       lock->addWaitClient(id);
       ret = lock_protocol::RETRY;
+    } else if (lock->getServerLockState() == ServerLockState::LOCK_AND_WAIT) {
+      lock->addWaitClient(id);
+      revoke_queue_.enq(lock);
+      ret = lock_protocol::RETRY;
+    } else {
+      if (lock->findWaitClient(id)) {
+        // 说明此时正在发送retry给该客户端，将其从集合中移除
+        lock->deleteWaitClient(id);
+        lock->setLockOwner(id);
+        if (!lock->waitClientSetEmpty()) {
+          lock->setServerLockState(ServerLockState::LOCK_AND_WAIT);
+          revoke = true;
+        } else {
+          lock->setServerLockState(ServerLockState::LOCKED);
+        }
+      } else {
+        lock->addWaitClient(id);
+        ret = lock_protocol::RETRY;
+      }
     }
+    if (revoke) {
+      revoke_queue_.enq(lock);
+    }
+  } else {
+    ret = lock->acquire_reply_[lock->getLockOwner()];
   }
-  if (revoke) {
-    // auto &owner = lock->getLockOwner();
-    // handle h(owner);
-    // ulock.unlock();
-    // int r;
-    // h.safebind()->call(rlock_protocol::revoke, lid, r);
-    revoke_queue_.enq(lock);
-  }
+  
   return ret;
 }
 
@@ -128,8 +130,7 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
     return lock_protocol::RPCERR;
   }
   auto lock = lock_table_[lid];
-  if (lock->getLockXid() > xid) return lock_protocol::RPCERR;
-  else lock->setLockXid(xid);
+  if (lock->getOwnerXid() > xid) return lock_protocol::RPCERR;
   if (lock->getServerLockState() == ServerLockState::FREE ||
       lock->getServerLockState() == ServerLockState::RETRYING) {
     ret = lock_protocol::RPCERR;
@@ -145,12 +146,6 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
     if (lock->waitClientSetEmpty()) {
       ret = lock_protocol::RPCERR;
     } else {
-      // auto wait_client = lock->getWaitClient();
-      // handle h(wait_client);
-      // int r;
-      // ret = lock_protocol::OK;
-      // ulock.unlock();
-      // h.safebind()->call(rlock_protocol::retry, lid, r);
       retry_queue_.enq(lock);
     }
   }

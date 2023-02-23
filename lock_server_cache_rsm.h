@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
 
 #include "lock_protocol.h"
 #include "rpc.h"
@@ -15,22 +16,14 @@ enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 
 class Lock {
  public:
-  Lock(lock_protocol::lockid_t lid, ServerLockState state, lock_protocol::lockid_t xid)
-      // : lid_(lid), state_(state), xid_(xid) {
-      {
-        std::cout << "lid_ " << lid << " xid_ " << xid << "\n";
-        lid_ = lid;
-        xid_ = xid;
-        state_ = state;
-      }
+  Lock(lock_protocol::lockid_t lid, ServerLockState state)
+      : lid_(lid), state_(state){}
 
   void setServerLockState(ServerLockState state) { state_ = state; }
 
   ServerLockState getServerLockState() { return state_; }
 
-  void addWaitClient(const std::string &wait_id) {
-    wait_client_set_.insert(wait_id);
-  }
+  void addWaitClient(const std::string &wait_id) { wait_client_set_.insert(wait_id);}
 
   void deleteWaitClient(const std::string &wait_id) {
     wait_client_set_.erase(wait_id);
@@ -48,11 +41,16 @@ class Lock {
 
   void setLockOwner(const std::string &owner) { owner_ = owner; }
 
-  lock_protocol::lockid_t getLockXid() { return xid_; }
-
-  void setLockXid(lock_protocol::lockid_t xid) { xid_ = xid; }
-
   lock_protocol::lockid_t getLockId() { return lid_; }
+
+  lock_protocol::xid_t getOwnerXid() { 
+    if (client_max_xid_.count(owner_) == 0) return -1;
+    return client_max_xid_[owner_];
+  }
+
+  void setOwnerXid(lock_protocol::xid_t xid) { 
+    client_max_xid_[owner_] = xid; 
+  }
 
  private:
   // 保存锁的持有者的id
@@ -63,21 +61,24 @@ class Lock {
   ServerLockState state_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
-  // 请求该锁的requese id, 只记录该锁的最高的xid
-  lock_protocol::lockid_t xid_{0};
+  std::map<std::string, lock_protocol::xid_t> client_max_xid_;
+  public:
+  // 不同id 对应的响应也不同
+  std::unordered_map<std::string, int> acquire_reply_;
+  std::unordered_map<std::string, int> release_reply_;
+  std::mutex lck_mutex_;
 };
 
 class lock_server_cache_rsm : public rsm_state_transfer {
  private:
   int nacquire;
   class rsm *rsm;
-  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+  std::unordered_map<lock_protocol::lockid_t, Lock*>
       lock_table_;
   std::mutex mutex_;
-  fifo<std::shared_ptr<Lock>> revoke_queue_;
-  fifo<std::shared_ptr<Lock>> retry_queue_;
+  fifo<Lock*> revoke_queue_;
+  fifo<Lock*> retry_queue_;
   
-
  public:
   lock_server_cache_rsm(class rsm *rsm = 0);
   lock_protocol::status stat(lock_protocol::lockid_t, int &);

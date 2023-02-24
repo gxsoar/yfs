@@ -12,24 +12,36 @@
 #include "rsm_state_transfer.h"
 #include "rpc/fifo.h"
 
-enum class ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
+enum ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 
 class Lock {
  public:
+  Lock()=default;
   Lock(lock_protocol::lockid_t lid, ServerLockState state)
       : lid_(lid), state_(state){}
 
-  void setServerLockState(ServerLockState state) { state_ = state; }
+  void setServerLockState(ServerLockState state) { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    state_ = state; 
+  }
 
-  ServerLockState getServerLockState() { return state_; }
+  ServerLockState getServerLockState() {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return state_; 
+  }
 
-  void addWaitClient(const std::string &wait_id) { wait_client_set_.insert(wait_id);}
+  void addWaitClient(const std::string &wait_id) { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    wait_client_set_.insert(wait_id);
+  }
 
   void deleteWaitClient(const std::string &wait_id) {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
     wait_client_set_.erase(wait_id);
   }
 
   bool findWaitClient(const std::string &wait_id) {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
     return (wait_client_set_.count(wait_id) != 0U);
   }
 
@@ -39,20 +51,35 @@ class Lock {
 
   std::string &getLockOwner() { return owner_; }
 
-  void setLockOwner(const std::string &owner) { owner_ = owner; }
+  void setLockOwner(const std::string &owner) { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    owner_ = owner; 
+  }
 
   lock_protocol::lockid_t getLockId() { return lid_; }
 
   lock_protocol::xid_t getOwnerXid() { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
     if (client_max_xid_.count(owner_) == 0) return -1;
     return client_max_xid_[owner_];
   }
 
-  void setOwnerXid(lock_protocol::xid_t xid) { 
-    client_max_xid_[owner_] = xid; 
+  void setClientXid(std::string id, lock_protocol::xid_t xid) {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    client_max_xid_[id] = xid;
   }
 
- private:
+  bool findClientId(std::string id) {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return client_max_xid_.count(id) != 0;
+  }
+
+  lock_protocol::xid_t getClientXid(std::string id) {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return client_max_xid_[id];
+  }
+
+  public:
   // 保存锁的持有者的id
   std::string owner_;
   // 锁的id
@@ -61,7 +88,6 @@ class Lock {
   ServerLockState state_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
-  public:
   std::map<std::string, lock_protocol::xid_t> client_max_xid_;
   // 不同id 对应的响应也不同
   std::unordered_map<std::string, int> acquire_reply_;
@@ -73,17 +99,17 @@ class lock_server_cache_rsm : public rsm_state_transfer {
  private:
   int nacquire;
   class rsm *rsm;
-  // std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
-      // lock_table_;
-  std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+      lock_table_;
+  // std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
   std::mutex mutex_;
   // fifo<Lock*> revoke_queue_;
   // fifo<Lock*> retry_queue_;
-  // fifo<std::shared_ptr<Lock>> revoke_queue_;
-  // fifo<std::shared_ptr<Lock>> retry_queue_;
+  fifo<std::shared_ptr<Lock>> revoke_queue_;
+  fifo<std::shared_ptr<Lock>> retry_queue_;
 
-  fifo<Lock> revoke_queue_;
-  fifo<Lock> retry_queue_;
+  // fifo<Lock> revoke_queue_;
+  // fifo<Lock> retry_queue_;
   
  public:
   lock_server_cache_rsm(class rsm *rsm = 0);

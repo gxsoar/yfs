@@ -73,20 +73,18 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
                                    lock_protocol::xid_t xid, int &) {
   lock_protocol::status ret = lock_protocol::OK;
   std::unique_lock<std::mutex> ulock(mutex_);
-  // std::shared_ptr<Lock> lock;
+  std::shared_ptr<Lock> lock;
 
   if (lock_table_.count(lid) == 0U) {
-    // lock = std::make_shared<Lock> (lid, ServerLockState::FREE);
-    lock_table_.insert(std::make_pair(lid, Lock(lid, ServerLockState::FREE)));
-    // lock_table_[lid] = lock;
+    lock = std::make_shared<Lock> (lid, ServerLockState::FREE);
+    // lock_table_.insert(std::make_pair(lid, Lock(lid, ServerLockState::FREE)));
+    lock_table_[lid] = lock;
   } 
-  // else lock = lock_table_[lid];
-  Lock *lock = &lock_table[lid];
+  else lock = lock_table_[lid];
+  // Lock *lock = &lock_table[lid];
   bool revoke = false;
-  auto &client_max_xid = lock->client_max_xid_;
-  auto ite = client_max_xid.find(id);
-  if (ite == client_max_xid.end() || ite->second < xid) {
-    client_max_xid[id] = xid;
+  if (!lock->findClientId(id) || lock->getClientXid(id) < xid) {
+    lock->setClientXid(id, xid);
     lock->release_reply_.erase(id);
     if (lock->getServerLockState() == ServerLockState::FREE) {
       lock->setServerLockState(ServerLockState::LOCKED);
@@ -122,7 +120,7 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
     if (revoke) {
       revoke_queue_.enq(lock);
     }
-  } else if (ite->second > xid) {
+  } else if (lock->getClientXid(id) > xid) {
     return lock_protocol::RPCERR;
   } else {
     ret = lock->acquire_reply_[lock->getLockOwner()];
@@ -137,10 +135,11 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
   if (lock_table_.count(lid) == 0U) {
     return lock_protocol::RPCERR;
   }
-  Lock *lock = &lock_table_[lid];
-  auto &client_max_xid = lock->client_max_xid_;
-  auto ite = client_max_xid.find(id);
-  if (ite != client_max_xid.end() && ite->second == xid) {
+  // Lock *lock = &lock_table_[lid];
+  auto lock = lock_table_[lid];
+  // auto &client_max_xid = lock->client_max_xid_;
+  // auto ite = client_max_xid.find(id);
+  if (lock->findClientId(id) && lock->getClientXid(id) == xid) {
     if (lock->release_reply_.find(id) == lock->release_reply_.end()) {
       if (lock->getServerLockState() == ServerLockState::FREE ||
           lock->getServerLockState() == ServerLockState::RETRYING) {
@@ -172,12 +171,49 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
 }
 
 std::string lock_server_cache_rsm::marshal_state() {
+  std::lock_guard<std::mutex> lck(mutex_);
+  using ull = unsigned long long;
   std::ostringstream ost;
   std::string r;
+  marshall rep;
+  rep << static_cast<ull>(lock_table_.size());
+  // 注意对齐marshal lock 的 lock 顺序和 unmarshal的逆序
+  for (auto &[lid, lock] : lock_table_) {
+    rep << lid;
+    rep << lock->getLockOwner();
+    int state = lock->state_;
+    rep << state;
+    for (auto &wait_client : lock->wait_client_set_) {
+      rep << wait_client;
+    }
+    for (auto &[id, xid] : lock->client_max_xid_) {
+      rep << id << xid;
+    }
+    for (auto &[id, reply] : lock->acquire_reply_) {
+      rep << id << reply;
+    }
+    for(auto &[id, reply] : lock->release_reply_) {
+      rep << id << reply;
+    }
+  }
   return r;
 }
 
-void lock_server_cache_rsm::unmarshal_state(std::string state) {}
+void lock_server_cache_rsm::unmarshal_state(std::string state) {
+  std::lock_guard<std::mutex> lck(mutex_);
+  using ull = unsigned long long;
+  unmarshall rep(state);
+  ull locks_size;
+  rep >> locks_size;
+  for (unsigned int i = 0; i < locks_size; ++ i) {
+    lock_protocol::lockid_t lid;
+    rep >> lid;
+    Lock lock;
+    int state;
+    rep >> lock.owner_ >> state;
+    lock.state_ = static_cast<ServerLockState>(state);
+  }
+}
 
 lock_protocol::status lock_server_cache_rsm::stat(lock_protocol::lockid_t lid,
                                                   int &r) {

@@ -186,6 +186,7 @@ void rsm::recovery() {
   }
 }
 
+// lab7 step three
 bool rsm::sync_with_backups() {
   pthread_mutex_unlock(&rsm_mutex);
   {
@@ -210,6 +211,7 @@ bool rsm::sync_with_backups() {
   return true;
 }
 
+// lab7 step 3
 bool rsm::sync_with_primary() {
   // Remember the primary of vid_insync
   std::string m = primary;
@@ -223,6 +225,7 @@ bool rsm::sync_with_primary() {
  * Call to transfer state from m to the local node.
  * Assumes that rsm_mutex is already held.
  */
+// lab7 step three
 bool rsm::statetransfer(std::string m) {
   // Code will be provided in Lab 7
   rsm_protocol::transferres r;
@@ -251,6 +254,7 @@ bool rsm::statetransfer(std::string m) {
   return true;
 }
 
+// lab7 step three
 bool rsm::statetransferdone(std::string m) {
   // You fill this in for Lab 7
   // - Inform primary that this slave has synchronized for vid_insync
@@ -324,7 +328,31 @@ void rsm::execute(int procno, std::string req, std::string &r) {
 rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
                                                std::string &r) {
   int ret = rsm_client_protocol::OK;
+  ScopedLock ml(&invoke_mutex);
   // You fill this in for Lab 7
+  if (inviewchange) {
+    ret = rsm_client_protocol::BUSY;
+  }
+  if (!amiprimary()) {
+    ret = rsm_client_protocol::NOTPRIMARY;
+  }
+  auto slaves = cfg->get_view(myvs.vid);
+  for (auto &slave : slaves) {
+    handle h(slave);
+    auto cl = h.safebind();
+    if (cl == nullptr) {
+      ret = rsm_client_protocol::BUSY;
+      return ret;
+    } 
+    int r;
+    auto slave_ret = cl->call(rsm_protocol::invoke, myvs, req, r, rpcc::to(1000));
+    if (slave_ret != rsm_protocol::OK) {
+      return rsm_client_protocol::BUSY;
+    }
+  }
+  last_myvs = myvs;
+  myvs.seqno++;
+  execute(procno, req, r);
   return ret;
 }
 
@@ -339,6 +367,15 @@ rsm_protocol::status rsm::invoke(int proc, viewstamp vs, std::string req,
                                  int &dummy) {
   rsm_protocol::status ret = rsm_protocol::OK;
   // You fill this in for Lab 7
+  pthread_mutex_lock(&rsm_mutex);
+  if (!inviewchange || amiprimary() || vs != myvs) {
+    return rsm_protocol::ERR;
+  }
+  last_myvs = myvs;
+  myvs.seqno++;
+  std::string r;
+  execute(proc, req, r);
+  pthread_mutex_unlock(&rsm_mutex);
   return ret;
 }
 
@@ -365,6 +402,7 @@ rsm_protocol::status rsm::transferreq(std::string src, viewstamp last,
  * RPC handler: Inform the local node (the primary) that node m has synchronized
  * for view vid
  */
+// lab7 step three
 rsm_protocol::status rsm::transferdonereq(std::string m, unsigned vid, int &) {
   int ret = rsm_protocol::OK;
   ScopedLock ml(&rsm_mutex);

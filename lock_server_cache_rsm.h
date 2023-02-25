@@ -16,9 +16,19 @@ enum ServerLockState { FREE, LOCKED, LOCK_AND_WAIT, RETRYING };
 
 class Lock {
  public:
+  friend class lock_server_cache_rsm;
   Lock()=default;
   Lock(lock_protocol::lockid_t lid, ServerLockState state)
       : lid_(lid), state_(state){}
+  Lock(const Lock &rhs) {
+    owner_ = rhs.owner_;
+    lid_ = rhs.lid_;
+    state_ = rhs.state_;
+    wait_client_set_ = rhs.wait_client_set_;
+    client_max_xid_ = rhs.client_max_xid_;
+    acquire_reply_ = rhs.acquire_reply_;
+    release_reply_ = rhs.release_reply_;
+  }
 
   void setServerLockState(ServerLockState state) { 
     std::lock_guard<std::mutex> lg(lck_mutex_);
@@ -45,11 +55,20 @@ class Lock {
     return (wait_client_set_.count(wait_id) != 0U);
   }
 
-  std::string getWaitClient() { return *wait_client_set_.begin(); }
+  std::string getWaitClient() { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return *wait_client_set_.begin(); 
+  }
 
-  bool waitClientSetEmpty() { return wait_client_set_.empty(); }
+  bool waitClientSetEmpty() {
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return wait_client_set_.empty(); 
+  }
 
-  std::string &getLockOwner() { return owner_; }
+  std::string &getLockOwner() { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return owner_; 
+  }
 
   void setLockOwner(const std::string &owner) { 
     std::lock_guard<std::mutex> lg(lck_mutex_);
@@ -78,8 +97,7 @@ class Lock {
     std::lock_guard<std::mutex> lg(lck_mutex_);
     return client_max_xid_[id];
   }
-
-  public:
+ private:
   // 保存锁的持有者的id
   std::string owner_;
   // 锁的id
@@ -88,6 +106,7 @@ class Lock {
   ServerLockState state_;
   // 等待该锁的集合
   std::unordered_set<std::string> wait_client_set_;
+
   std::map<std::string, lock_protocol::xid_t> client_max_xid_;
   // 不同id 对应的响应也不同
   std::unordered_map<std::string, int> acquire_reply_;

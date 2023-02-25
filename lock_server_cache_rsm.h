@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <map>
+#include <set>
 
 #include "lock_protocol.h"
 #include "rpc.h"
@@ -28,6 +29,16 @@ class Lock {
     client_max_xid_ = rhs.client_max_xid_;
     acquire_reply_ = rhs.acquire_reply_;
     release_reply_ = rhs.release_reply_;
+  }
+  Lock& operator=(const Lock &rhs) {
+    owner_ = rhs.owner_;
+    lid_ = rhs.lid_;
+    state_ = rhs.state_;
+    wait_client_set_ = rhs.wait_client_set_;
+    client_max_xid_ = rhs.client_max_xid_;
+    acquire_reply_ = rhs.acquire_reply_;
+    release_reply_ = rhs.release_reply_;
+    return *this;
   }
 
   void setServerLockState(ServerLockState state) { 
@@ -75,7 +86,10 @@ class Lock {
     owner_ = owner; 
   }
 
-  lock_protocol::lockid_t getLockId() { return lid_; }
+  lock_protocol::lockid_t getLockId() { 
+    std::lock_guard<std::mutex> lg(lck_mutex_);
+    return lid_; 
+  }
 
   lock_protocol::xid_t getOwnerXid() { 
     std::lock_guard<std::mutex> lg(lck_mutex_);
@@ -109,23 +123,44 @@ class Lock {
 
   std::map<std::string, lock_protocol::xid_t> client_max_xid_;
   // 不同id 对应的响应也不同
-  std::unordered_map<std::string, int> acquire_reply_;
-  std::unordered_map<std::string, int> release_reply_;
+  std::map<std::string, int> acquire_reply_;
+  std::map<std::string, int> release_reply_;
   std::mutex lck_mutex_;
+};
+
+struct ServerLock {
+  ServerLockState state_;
+  std::string owner_;
+  bool revoked_ = false;
+  std::set<std::string> wait_client_set_;
+  std::map<std::string, lock_protocol::xid_t> client_max_xid_;
+  std::map<std::string, int> client_acquire_reply_;
+  std::map<std::string, int> client_release_reply_;
+  ServerLock() : state_(ServerLockState::FREE), revoked_(false) {}
 };
 
 class lock_server_cache_rsm : public rsm_state_transfer {
  private:
   int nacquire;
   class rsm *rsm;
-  std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
-      lock_table_;
+  // std::unordered_map<lock_protocol::lockid_t, std::shared_ptr<Lock>>
+  //     lock_table_;
   // std::unordered_map<lock_protocol::lockid_t, Lock> lock_table_;
+  struct lock_entry {
+    std::string id_;
+    lock_protocol::lockid_t lid_;
+    lock_protocol::xid_t xid_;
+    lock_entry(const std::string &id = "", lock_protocol::lockid_t lid = 0, lock_protocol::xid_t xid = 0) : id_(id), lid_(lid), xid_(xid) {}
+  };
+  std::unordered_map<lock_protocol::lockid_t, ServerLock> lock_table_;
   std::mutex mutex_;
   // fifo<Lock*> revoke_queue_;
   // fifo<Lock*> retry_queue_;
-  fifo<std::shared_ptr<Lock>> revoke_queue_;
-  fifo<std::shared_ptr<Lock>> retry_queue_;
+
+  fifo<lock_entry> revoke_queue_;
+  fifo<lock_entry> retry_queue_;
+  // fifo<std::shared_ptr<Lock>> revoke_queue_;
+  // fifo<std::shared_ptr<Lock>> retry_queue_;
 
   // fifo<Lock> revoke_queue_;
   // fifo<Lock> retry_queue_;

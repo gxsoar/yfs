@@ -55,6 +55,15 @@ class Lock {
   ClientLockState state_;
 };
 
+struct ClientLock {
+  bool revoked_{false};
+  bool retry_{false};
+  ClientLockState state_;
+  lock_protocol::lockid_t lid_;
+  lock_protocol::xid_t xid_{0};
+  ClientLock() : revoked_{false}, retry_{false} {}
+};
+
 // Clients that caches locks.  The server can revoke locks using
 // lock_revoke_server.
 class lock_client_cache_rsm : public lock_client {
@@ -64,8 +73,15 @@ class lock_client_cache_rsm : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-  std::atomic<lock_protocol::xid_t> xid{0};
-  fifo<Lock> release_fifo_;
+  // std::atomic<lock_protocol::xid_t> xid{0};
+  lock_protocol::xid_t xid;
+  struct lock_entry {
+    lock_protocol::lockid_t lid_;
+    lock_protocol::xid_t xid_;
+    lock_entry(lock_protocol::lockid_t lid = 0, lock_protocol::xid_t xid = 0) : lid_(lid), xid_(xid) {}
+  };
+  // fifo<Lock> release_fifo_;
+  fifo<lock_entry> release_queue_;
 
  public:
   static int last_port;
@@ -80,8 +96,9 @@ class lock_client_cache_rsm : public lock_client {
                                        lock_protocol::xid_t, int &);
 
  private:
-  std::unordered_map<lock_protocol::lockid_t, Lock*>
-      lock_table_;
+  // std::unordered_map<lock_protocol::lockid_t, Lock*>
+  //     lock_table_;
+  std::unordered_map<lock_protocol::lockid_t, ClientLock> lock_table_;
   std::mutex mutex_;
   std::condition_variable retry_cv_;
   std::condition_variable wait_cv_;

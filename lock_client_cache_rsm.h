@@ -61,20 +61,20 @@ struct ClientLock {
   ClientLockState state_;
   lock_protocol::lockid_t lid_;
   lock_protocol::xid_t xid_{0};
-  ClientLock() : revoked_{false}, retry_{false} {}
+  ClientLock() : revoked_{false}, retry_{false}, state_(ClientLockState::NONE), xid_(0) {}
 };
 
 // Clients that caches locks.  The server can revoke locks using
 // lock_revoke_server.
 class lock_client_cache_rsm : public lock_client {
  private:
-  rsm_client *rsmc;
+  // rsm_client *rsmc;
+  std::unique_ptr<rsm_client> rsmc;
   class lock_release_user *lu;
   int rlock_port;
   std::string hostname;
   std::string id;
-  // std::atomic<lock_protocol::xid_t> xid{0};
-  lock_protocol::xid_t xid;
+  std::atomic<lock_protocol::xid_t> xid{0};
   struct lock_entry {
     lock_protocol::lockid_t lid_;
     lock_protocol::xid_t xid_;

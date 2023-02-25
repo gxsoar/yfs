@@ -30,7 +30,7 @@ lock_server_cache_rsm::lock_server_cache_rsm(class rsm *_rsm) : rsm(_rsm) {
   VERIFY(r == 0);
   r = pthread_create(&th, NULL, &retrythread, (void *)this);
   VERIFY(r == 0);
-  // rsm->set_state_transfer(this);
+  rsm->set_state_transfer(this);
 }
 
 void lock_server_cache_rsm::revoker() {
@@ -43,7 +43,7 @@ void lock_server_cache_rsm::revoker() {
   while(true) {
     lock_entry tmp;
     revoke_queue_.deq(&tmp);
-    // if (!rsm->amiprimary()) continue;
+    if (!rsm->amiprimary()) continue;
     auto &owner = tmp.id_;
     handle h(owner);
     if (auto cl = h.safebind()) {
@@ -57,12 +57,11 @@ void lock_server_cache_rsm::retryer() {
   // to be released and then sending retry messages to those who
   // are waiting for it->
   // Lock *lock = nullptr;
-  
   int r;
   while(true) {
     lock_entry tmp;
     retry_queue_.deq(&tmp);
-    // if (!rsm->amiprimary()) continue;
+    if (!rsm->amiprimary()) continue;
     auto &owner = tmp.id_;
     handle h(owner);
     if (auto cl = h.safebind()) {

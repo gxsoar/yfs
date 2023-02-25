@@ -43,6 +43,7 @@ lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
   // - Create rsmc, and use the object to do RPC
   //   calls instead of the rpcc object of lock_client
   // rsmc = new rsm_client(xdst);
+  rsmc = std::make_unique<rsm_client>(xdst);
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *)this);
   VERIFY(r == 0);
@@ -57,7 +58,8 @@ void lock_client_cache_rsm::releaser() {
       release_queue_.deq(&tmp);
       if (lu != nullptr) lu->dorelease(tmp.lid_);
       int r;
-      cl->call(lock_protocol::release, tmp.lid_,id, tmp.xid_, r);
+      rsmc->call(lock_protocol::release, tmp.lid_, id, tmp.xid_, r);
+      // cl->call(lock_protocol::release, tmp.lid_,id, tmp.xid_, r);
       std::unique_lock<std::mutex> ulck(mutex_);
       auto &lock = lock_table_[tmp.lid_];
       lock.state_ = ClientLockState::NONE;
@@ -164,16 +166,17 @@ lock_protocol::status lock_client_cache_rsm::acquire(
         int r;
         lock.xid_ = xid++;
         ulock.unlock();
-        auto server_ret = cl->call(lock_protocol::acquire, lid, id, lock.xid_, r);
+        ret = rsmc->call(lock_protocol::acquire, lid, id, lock.xid_, r);
+        // auto server_ret = cl->call(lock_protocol::acquire, lid, id, lock.xid_, r);
         ulock.lock();
-        if (server_ret == lock_protocol::RETRY) {
+        if (ret == lock_protocol::RETRY) {
           if (!lock.retry_) {
             auto start = std::chrono::system_clock::now();
             if (retry_cv_.wait_until(ulock, start + std::chrono::seconds(3)) == std::cv_status::timeout) {
               lock.retry_ = true;
             }
           }
-        } else if (server_ret == lock_protocol::OK) {
+        } else if (ret == lock_protocol::OK) {
           lock.state_ = ClientLockState::LOCKED;
           return lock_protocol::OK;
         }
@@ -199,7 +202,8 @@ lock_protocol::status lock_client_cache_rsm::acquire(
           int r;
           lock.xid_ = xid++;
           ulock.unlock();
-          ret = cl->call(lock_protocol::acquire, lid, id, lock.xid_, r);
+          ret = rsmc->call(lock_protocol::acquire, lid, id, lock.xid_, r);
+          // ret = cl->call(lock_protocol::acquire, lid, id, lock.xid_, r);
           ulock.lock();
           if (ret == lock_protocol::OK) {
             lock.state_ = ClientLockState::LOCKED;
@@ -268,7 +272,8 @@ lock_protocol::status lock_client_cache_rsm::release(
     ulock.unlock();
     int r;
     if (lu != nullptr) lu->dorelease(lid);
-    ret = cl->call(lock_protocol::release, lid, id, cur_xid, r);
+    ret = rsmc->call(lock_protocol::release, lid, id, cur_xid, r);
+    // ret = cl->call(lock_protocol::release, lid, id, cur_xid, r);
     ulock.lock();
     lock.state_ = ClientLockState::NONE;
     release_cv_.notify_all();
@@ -277,7 +282,7 @@ lock_protocol::status lock_client_cache_rsm::release(
     lock.state_ = ClientLockState::FREE;
     wait_cv_.notify_one();
   }
-  return lock_protocol::OK;
+  return ret;
 }
 
 // rlock_protocol::status lock_client_cache_rsm::revoke_handler(

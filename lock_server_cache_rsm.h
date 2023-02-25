@@ -154,16 +154,9 @@ class lock_server_cache_rsm : public rsm_state_transfer {
   };
   std::unordered_map<lock_protocol::lockid_t, ServerLock> lock_table_;
   std::mutex mutex_;
-  // fifo<Lock*> revoke_queue_;
-  // fifo<Lock*> retry_queue_;
 
   fifo<lock_entry> revoke_queue_;
   fifo<lock_entry> retry_queue_;
-  // fifo<std::shared_ptr<Lock>> revoke_queue_;
-  // fifo<std::shared_ptr<Lock>> retry_queue_;
-
-  // fifo<Lock> revoke_queue_;
-  // fifo<Lock> retry_queue_;
   
  public:
   lock_server_cache_rsm(class rsm *rsm = 0);

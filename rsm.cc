@@ -338,6 +338,7 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
   }
   auto slaves = cfg->get_view(myvs.vid);
   for (auto &slave : slaves) {
+    if (slave == cfg->myaddr()) continue;
     handle h(slave);
     auto cl = h.safebind();
     if (cl == nullptr) {
@@ -345,8 +346,8 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
       return ret;
     } 
     int r;
-    auto slave_ret = cl->call(rsm_protocol::invoke, myvs, req, r, rpcc::to(1000));
-    if (slave_ret != rsm_protocol::OK) {
+    ret = cl->call(rsm_protocol::invoke, procno, myvs, req, r, rpcc::to(1000));
+    if (ret != rsm_protocol::OK) {
       return rsm_client_protocol::BUSY;
     }
   }
@@ -367,15 +368,17 @@ rsm_protocol::status rsm::invoke(int proc, viewstamp vs, std::string req,
                                  int &dummy) {
   rsm_protocol::status ret = rsm_protocol::OK;
   // You fill this in for Lab 7
-  pthread_mutex_lock(&rsm_mutex);
-  if (!inviewchange || amiprimary() || vs != myvs) {
+  ScopedLock ml(&invoke_mutex);
+  if (inviewchange) {
+    return rsm_protocol::BUSY;
+  }
+  if (vs != myvs) {
     return rsm_protocol::ERR;
   }
   last_myvs = myvs;
   myvs.seqno++;
   std::string r;
   execute(proc, req, r);
-  pthread_mutex_unlock(&rsm_mutex);
   return ret;
 }
 

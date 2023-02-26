@@ -282,19 +282,28 @@ std::string lock_server_cache_rsm::marshal_state() {
     rep << lock.owner_;
     int state = lock.state_;
     rep << state;
+    int revoked = lock.revoked_;
+    rep << revoked;
+    int wait_client_set_size = lock.wait_client_set_.size();
+    rep << wait_client_set_size;
     for (auto &wait_client : lock.wait_client_set_) {
       rep << wait_client;
     }
+    int client_max_xid_size = lock.client_max_xid_.size();
+    rep << client_max_xid_size;
     for (auto &[id, xid] : lock.client_max_xid_) {
       rep << id << xid;
     }
+    int acquire_reply_size = lock.client_acquire_reply_.size();
     for (auto &[id, reply] : lock.client_acquire_reply_) {
       rep << id << reply;
     }
-    for(auto &[id, reply] : lock.client_release_reply_) {
+    int release_reply_size = lock.client_release_reply_.size();
+    for (auto &[id, reply] : lock.client_release_reply_) {
       rep << id << reply;
     }
   }
+  r = rep.str();
   return r;
 }
 
@@ -307,10 +316,45 @@ void lock_server_cache_rsm::unmarshal_state(std::string state) {
   for (unsigned int i = 0; i < locks_size; ++ i) {
     lock_protocol::lockid_t lid;
     rep >> lid;
-    Lock lock;
+    ServerLock lock;
     int state;
     rep >> lock.owner_ >> state;
     lock.state_ = static_cast<ServerLockState>(state);
+    int revoked;
+    rep >> revoked;
+    lock.revoked_ = revoked;
+    int wait_client_size;
+    rep >> wait_client_size;
+    for (int i = 0; i < wait_client_size; ++ i) {
+      std::string str;
+      rep >> str;
+      lock.wait_client_set_.insert(str);
+    }
+    int client_max_xid_size;
+    rep >> client_max_xid_size;
+    for (int i = 0; i < client_max_xid_size; ++ i) {
+      std::string id;
+      ull xid;
+      rep >> id >> xid;
+      lock.client_max_xid_[id] = xid;
+    }
+    int acquire_reply_size;
+    rep >> acquire_reply_size;
+    for (int i = 0; i < acquire_reply_size; ++ i) {
+      std::string id;
+      int reply;
+      rep >> id >> reply;
+      lock.client_acquire_reply_[id] = reply;
+    }
+    int release_reply_size;
+    rep >> release_reply_size;
+    for (int i = 0; i < release_reply_size; ++ i) {
+      std::string id;
+      int reply;
+      rep >> id >> reply;
+      lock.client_release_reply_[id] = reply;
+    }
+    lock_table_[lid] = lock;
   }
 }
 

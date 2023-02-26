@@ -282,7 +282,7 @@ std::string lock_server_cache_rsm::marshal_state() {
     rep << lock.owner_;
     int state = lock.state_;
     rep << state;
-    int revoked = lock.revoked_;
+    bool revoked = lock.revoked_;
     rep << revoked;
     int wait_client_set_size = lock.wait_client_set_.size();
     rep << wait_client_set_size;
@@ -295,10 +295,12 @@ std::string lock_server_cache_rsm::marshal_state() {
       rep << id << xid;
     }
     int acquire_reply_size = lock.client_acquire_reply_.size();
+    rep << acquire_reply_size;
     for (auto &[id, reply] : lock.client_acquire_reply_) {
       rep << id << reply;
     }
     int release_reply_size = lock.client_release_reply_.size();
+    rep << release_reply_size;
     for (auto &[id, reply] : lock.client_release_reply_) {
       rep << id << reply;
     }
@@ -320,7 +322,7 @@ void lock_server_cache_rsm::unmarshal_state(std::string state) {
     int state;
     rep >> lock.owner_ >> state;
     lock.state_ = static_cast<ServerLockState>(state);
-    int revoked;
+    bool revoked;
     rep >> revoked;
     lock.revoked_ = revoked;
     int wait_client_size;

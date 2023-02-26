@@ -27,6 +27,11 @@ rsm_client::rsm_client(std::string dst) {
 // Assumes caller holds rsm_client_mutex
 void rsm_client::primary_failure() {
   // You fill this in for Lab 7
+  VERIFY(!known_mems.empty());
+  if (!known_mems.empty()) {
+    primary = known_mems.back();
+    known_mems.pop_back();
+  }
 }
 
 rsm_protocol::status rsm_client::invoke(int proc, std::string req,

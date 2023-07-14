@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "paxos/paxos.h""
+#include "paxos/paxos.h"
 
 class config_view_change {
  public:

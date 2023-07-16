@@ -145,6 +145,8 @@ rlock_protocol::status lock_client_cache::revoke_handler(
     lock->setClientLockState(ClientLockState::NONE);
     release_cv_.notify_all();
   } else {
+    // 设置revoked条件变量，就是为了防止revoke rpc先发送过来，只需要将revoked设置为true即可
+    // 具体实际的释放操作还是需要等到最终访问完文件执行release
     lock->revoked_ = true;
   }
   return ret;
